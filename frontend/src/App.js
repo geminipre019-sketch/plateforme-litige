@@ -161,7 +161,8 @@ function App() {
                             </div>
                             <div className={`flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                                 <span className="text-sm font-semibold text-[#4a4a4a] mb-1">{isCurrentUser ? 'Me' : 'PayPal Support'}</span>
-                                <div className={`text-white p-3 rounded-lg max-w-md ${isCurrentUser ? 'bg-[#0070ba] rounded-tr-none' : 'bg-[#e1e7eb] text-black rounded-tl-none'}`}>
+                                {/* --- LA LIGNE CORRIGÉE EST ICI --- */}
+                                <div className={`p-3 rounded-lg max-w-md ${isCurrentUser ? 'bg-[#0070ba] text-white rounded-tr-none' : 'bg-[#e1e7eb] text-black rounded-tl-none'}`}>
                                     <p>{msg.text}</p>
                                 </div>
                             </div>
