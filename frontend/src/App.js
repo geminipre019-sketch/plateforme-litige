@@ -5,158 +5,182 @@ import io from 'socket.io-client';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 const socket = io(API_URL);
 
-// --- Icône Poubelle (SVG) ---
+// --- SVG Icons ---
 const TrashIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
-    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
-  </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+        <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+    </svg>
 );
 
-// --- Composant Principal ---
+const SendIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+    </svg>
+);
+
+
+// --- Main App Component ---
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userType, setUserType] = useState('');
-  const [code, setCode] = useState('');
-  const [date, setDate] = useState('');
-  const [error, setError] = useState('');
-  const [messages, setMessages] = useState([]);
-  const [message, setMessage] = useState('');
-  const messagesEndRef = useRef(null);
+    // --- State Management ---
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [userType, setUserType] = useState(''); // 'User' or 'Support'
+    const [code, setCode] = useState('');
+    const [date, setDate] = useState('');
+    const [error, setError] = useState('');
+    const [messages, setMessages] = useState([]);
+    const [message, setMessage] = useState('');
+    const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    // Écoute les messages de chat standards
-    socket.on('chat message', (msg) => {
-      setMessages((prevMessages) => [...prevMessages, msg]);
-    });
+    // --- Effects ---
+    useEffect(() => {
+        socket.on('chat message', (msg) => {
+            setMessages((prev) => [...prev, msg]);
+        });
+        socket.on('chat cleared', () => {
+            setMessages([]);
+        });
+        socket.on('user activity', (notification) => {
+            if (userType === 'Support') {
+                const systemMessage = { user: 'System', text: notification.text };
+                setMessages((prev) => [...prev, systemMessage]);
+            }
+        });
 
-    // NOUVEAU: Écoute l'ordre d'effacement du chat
-    socket.on('chat cleared', () => {
-      setMessages([]); // On vide l'historique des messages
-    });
+        return () => {
+            socket.off('chat message');
+            socket.off('chat cleared');
+            socket.off('user activity');
+        };
+    }, [userType]);
 
-    // NOUVEAU: Écoute les notifications de connexion/déconnexion
-    socket.on('user activity', (notification) => {
-      // Seul le service litige voit ces notifications système
-      if (userType === 'Service Litige') {
-        const systemMessage = { user: 'System', text: notification.text };
-        setMessages((prevMessages) => [...prevMessages, systemMessage]);
-      }
-    });
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
-    return () => {
-      socket.off('chat message');
-      socket.off('chat cleared');
-      socket.off('user activity');
+    // --- Handlers ---
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+            const response = await fetch(`${API_URL}/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, date }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                setIsLoggedIn(true);
+                setUserType(data.userType);
+                setMessages([{ user: 'Support', text: 'Hello! How can we help you with your case today?' }]);
+            } else {
+                setError(data.message || 'Invalid code or date');
+            }
+        } catch (err) {
+            setError('Server connection error. Please try again.');
+        }
     };
-  }, [userType]); // On ajoute userType comme dépendance pour que le listener soit à jour
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const sendMessage = (e) => {
+        e.preventDefault();
+        if (message.trim()) {
+            const msg = { user: userType, text: message };
+            socket.emit('chat message', msg);
+            setMessage('');
+        }
+    };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      const response = await fetch(`${API_URL}/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, date }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        setIsLoggedIn(true);
-        setUserType(data.userType);
-        // Message de bienvenue initial pour tout le monde
-        setMessages([{ user: 'Service Litige', text: 'Bonjour ! Comment pouvons-nous vous aider avec votre dossier ?' }]);
-      } else {
-        setError(data.message || 'Code ou date invalide');
-      }
-    } catch (err) {
-      setError('Erreur de connexion au serveur. Veuillez réessayer.');
-    }
-  };
+    const handleClearChat = () => {
+        socket.emit('clear chat');
+    };
 
-  const sendMessage = (e) => {
-    e.preventDefault();
-    if (message.trim()) {
-      const msg = { user: userType, text: message };
-      socket.emit('chat message', msg);
-      setMessage('');
-    }
-  };
-
-  // NOUVEAU: Fonction pour demander l'effacement du chat
-  const handleClearChat = () => {
-    socket.emit('clear chat');
-  };
-
-  if (!isLoggedIn) {
-    return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
-                <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">Accès à votre dossier</h1>
-                <p className="text-center text-gray-500 mb-6">Veuillez entrer les informations fournies pour communiquer avec notre service.</p>
-                <form onSubmit={handleLogin}>
-                    <div className="mb-4">
-                        <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">Code du litige</label>
-                        <input type="text" id="code" value={code} onChange={(e) => setCode(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
-                    </div>
-                    <div className="mb-6">
-                        <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date du litige (JJ/MM/AAAA)</label>
-                        <input type="text" id="date" value={date} placeholder="JJ/MM/AAAA" onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
-                    </div>
-                    {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
-                    <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300">Se connecter</button>
-                </form>
+    // --- Render Logic ---
+    // Login Screen
+    if (!isLoggedIn) {
+        return (
+            <div className="min-h-screen bg-[#f5f7fa] flex items-center justify-center p-4 font-sans">
+                <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+                    <img src="/paypal.png" alt="PayPal Logo" className="w-24 mx-auto mb-6" />
+                    <h1 className="text-2xl font-bold text-center text-[#003087] mb-2">Case Access</h1>
+                    <p className="text-center text-gray-500 mb-6">Please enter the information provided to communicate with our service.</p>
+                    <form onSubmit={handleLogin}>
+                        <div className="mb-4">
+                            <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">Dispute Code</label>
+                            <input type="text" id="code" value={code} onChange={(e) => setCode(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#009cde] focus:border-[#009cde]" required />
+                        </div>
+                        <div className="mb-6">
+                            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Dispute Date (DD/MM/YYYY)</label>
+                            <input type="text" id="date" value={date} placeholder="DD/MM/YYYY" onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#009cde] focus:border-[#009cde]" required />
+                        </div>
+                        {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
+                        <button type="submit" className="w-full bg-[#0070ba] text-white font-bold py-2.5 px-4 rounded-lg hover:bg-[#003087] transition duration-300">
+                            Connect
+                        </button>
+                    </form>
+                </div>
             </div>
-        </div>
-    );
-  }
+        );
+    }
 
-  return (
-    <div className="h-screen flex flex-col font-sans bg-gray-50">
-        <header className="bg-white shadow-md p-4 flex justify-between items-center">
-            <h1 className="text-xl font-semibold text-gray-700">Service Litige – Communication en direct</h1>
-            {/* NOUVEAU: Le bouton effacer n'apparaît que pour le service litige */}
-            {userType === 'Service Litige' && (
-                <button onClick={handleClearChat} className="flex items-center gap-2 bg-red-500 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-red-600 transition duration-300">
-                    <TrashIcon />
-                    Effacer
-                </button>
-            )}
-        </header>
-        <main className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg, index) => {
-                // NOUVEAU: Affichage spécial pour les messages système
-                if (msg.user === 'System') {
+    // Chat Screen
+    return (
+        <div className="h-screen flex flex-col font-sans bg-[#f5f7fa]">
+            <header className="flex items-center p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
+                <img src="/paypal.png" alt="PayPal Logo" className="h-8 w-auto mr-4" />
+                <div>
+                    <h1 className="text-xl font-bold text-[#003087]">Customer Service</h1>
+                    <p className="text-sm text-green-500 font-semibold flex items-center">
+                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        Live
+                    </p>
+                </div>
+                {userType === 'Support' && (
+                    <button onClick={handleClearChat} className="ml-auto flex items-center gap-2 bg-red-500 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-red-600 transition duration-300">
+                        <TrashIcon />
+                        Clear Chat
+                    </button>
+                )}
+            </header>
+
+            <main className="flex-1 p-6 overflow-y-auto space-y-6">
+                {messages.map((msg, index) => {
+                    if (msg.user === 'System') {
+                        return (
+                            <div key={index} className="text-center my-2">
+                                <p className="text-xs text-gray-500 italic bg-gray-200 px-3 py-1 rounded-full inline-block">{msg.text}</p>
+                            </div>
+                        );
+                    }
+                    
+                    const isCurrentUser = msg.user === userType;
+                    
                     return (
-                        <div key={index} className="text-center my-2">
-                            <p className="text-xs text-gray-500 italic bg-gray-200 px-3 py-1 rounded-full inline-block">{msg.text}</p>
+                        <div key={index} className={`flex items-start gap-3 ${isCurrentUser ? 'flex-row-reverse' : ''}`}>
+                             <div className={`w-10 h-10 rounded-full text-white flex items-center justify-center font-bold flex-shrink-0 ${isCurrentUser ? 'bg-[#009cde]' : 'bg-[#003087]'}`}>
+                                {isCurrentUser ? 'Me' : 'PP'}
+                            </div>
+                            <div className={`flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+                                <span className="text-sm font-semibold text-[#4a4a4a] mb-1">{isCurrentUser ? 'Me' : 'PayPal Support'}</span>
+                                <div className={`text-white p-3 rounded-lg max-w-md ${isCurrentUser ? 'bg-[#0070ba] rounded-tr-none' : 'bg-[#e1e7eb] text-black rounded-tl-none'}`}>
+                                    <p>{msg.text}</p>
+                                </div>
+                            </div>
                         </div>
                     );
-                }
-                // Affichage normal pour les messages de chat
-                return (
-                    <div key={index} className={`flex items-end gap-2 ${msg.user === userType ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xs md:max-w-md p-3 rounded-2xl shadow-sm ${msg.user === userType ? 'bg-blue-500 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'}`}>
-                            <p className="text-xs font-semibold mb-1 opacity-80">{msg.user === userType ? 'Moi' : msg.user}</p>
-                            <p className="text-sm">{msg.text}</p>
-                        </div>
-                    </div>
-                );
-            })}
-            <div ref={messagesEndRef} />
-        </main>
-        <footer className="bg-white p-4 border-t">
-            <form onSubmit={sendMessage} className="flex gap-2">
-                <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-blue-500 focus:border-blue-500" placeholder="Écrivez votre message..." autoComplete="off" />
-                <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-4 rounded-full hover:bg-blue-700 transition duration-300">Envoyer</button>
-            </form>
-        </footer>
-    </div>
-  );
+                })}
+                <div ref={messagesEndRef} />
+            </main>
+
+            <footer className="p-4 bg-white border-t border-[#e1e7eb]">
+                <form onSubmit={sendMessage} className="flex items-center space-x-4">
+                    <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write your message..." className="flex-1 p-3 border border-[#e1e7eb] rounded-full focus:outline-none focus:ring-2 focus:ring-[#009cde] transition" />
+                    <button type="submit" className="bg-[#0070ba] text-white p-3 rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0 hover:bg-[#003087] transition">
+                        <SendIcon />
+                    </button>
+                </form>
+            </footer>
+        </div>
+    );
 }
 
 export default App;

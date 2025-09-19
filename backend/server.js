@@ -1,23 +1,18 @@
-// --- Import des modules nécessaires ---
+// --- Modules ---
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 const cors = require('cors');
 
-// --- Initialisation du serveur ---
+// --- Server Initialization ---
 const app = express();
 const server = http.createServer(app);
 
-// --- Configuration de CORS (Cross-Origin Resource Sharing) ---
-const frontendURL = "https://paypal-owpo.onrender.com"; // Assurez-vous que c'est bien l'URL de votre frontend
+// --- CORS Configuration ---
+const frontendURL = "https://paypal-owpo.onrender.com"; // Your live frontend URL
+app.use(cors({ origin: frontendURL }));
 
-const corsOptions = {
-  origin: frontendURL,
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
-
-// --- Initialisation de Socket.IO ---
+// --- Socket.IO Initialization ---
 const io = new Server(server, {
   cors: {
     origin: frontendURL,
@@ -25,62 +20,53 @@ const io = new Server(server, {
   }
 });
 
-// Middleware pour parser le JSON des requêtes
 app.use(express.json());
 
-// --- Données du litige (hardcodées) ---
-// Identifiants pour l'utilisateur (client)
+// --- Hardcoded Credentials ---
 const CORRECT_CODE_USER = "H25lnFfA3mNbU4nF5WDZ";
 const CORRECT_DATE_USER = "18/09/2025";
-
-// Nouveaux identifiants pour le service litige
 const CORRECT_CODE_SERVICE = "gg";
 const CORRECT_DATE_SERVICE = "123";
 
-
-// --- Route API pour la vérification de la connexion ---
+// --- API Route for Verification ---
 app.post('/verify', (req, res) => {
   const { code, date } = req.body;
 
   if (code === CORRECT_CODE_USER && date === CORRECT_DATE_USER) {
-    res.status(200).json({ success: true, message: 'Authentification réussie', userType: 'Utilisateur' });
+    res.status(200).json({ success: true, userType: 'User' });
   } else if (code === CORRECT_CODE_SERVICE && date === CORRECT_DATE_SERVICE) {
-    res.status(200).json({ success: true, message: 'Authentification service réussie', userType: 'Service Litige' });
+    res.status(200).json({ success: true, userType: 'Support' });
   } else {
-    res.status(401).json({ success: false, message: 'Code ou date invalide' });
+    res.status(401).json({ success: false, message: 'Invalid code or date' });
   }
 });
 
-// --- Gestion des connexions Socket.IO (pour le chat en temps réel) ---
+// --- Socket.IO Connection Handling ---
 io.on('connection', (socket) => {
-  console.log('Un utilisateur est connecté au chat !');
+  console.log('A user connected to the chat!');
 
-  // NOUVEAU: Notifie tous les autres utilisateurs qu'une nouvelle personne est arrivée.
-  socket.broadcast.emit('user activity', { text: 'Un utilisateur s\'est connecté.' });
+  // Notify support when a user connects
+  socket.broadcast.emit('user activity', { text: 'A user has connected.' });
 
-  // Gère la réception d'un message
   socket.on('chat message', (msg) => {
     io.emit('chat message', msg);
   });
 
-  // NOUVEAU: Gère la demande d'effacement du chat
   socket.on('clear chat', () => {
-    // Ordonne à tous les clients d'effacer leurs messages
     io.emit('chat cleared');
-    console.log('Le chat a été effacé par un administrateur.');
+    console.log('Chat was cleared by an admin.');
   });
 
-  // Gère la déconnexion d'un utilisateur
   socket.on('disconnect', () => {
-    console.log('Un utilisateur s\'est déconnecté');
-    // NOUVEAU: Notifie tout le monde qu'un utilisateur est parti.
-    io.emit('user activity', { text: 'Un utilisateur s\'est déconnecté.' });
+    console.log('A user disconnected');
+    // Notify support when a user disconnects
+    io.emit('user activity', { text: 'A user has disconnected.' });
   });
 });
 
-// --- Démarrage du serveur ---
+// --- Server Start ---
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`Le serveur est démarré et écoute sur le port ${PORT}`);
+  console.log(`Server is running and listening on port ${PORT}`);
 });
 
