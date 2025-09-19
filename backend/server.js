@@ -9,9 +9,7 @@ const app = express();
 const server = http.createServer(app);
 
 // --- Configuration de CORS (Cross-Origin Resource Sharing) ---
-// C'est la partie la plus importante pour le déploiement.
-// Nous devons autoriser l'URL de notre frontend à communiquer avec ce backend.
-const frontendURL = "https://paypal-owpo.onrender.com"; // <-- METTEZ L'URL DE VOTRE FRONTEND ICI
+const frontendURL = "https://paypal-owpo.onrender.com"; // Assurez-vous que c'est bien l'URL de votre frontend
 
 const corsOptions = {
   origin: frontendURL,
@@ -31,19 +29,24 @@ const io = new Server(server, {
 app.use(express.json());
 
 // --- Données du litige (hardcodées) ---
-const CORRECT_CODE = "H25lnFfA3mNbU4nF5WDZ";
-const CORRECT_DATE = "18/09/2025";
+// Identifiants pour l'utilisateur (client)
+const CORRECT_CODE_USER = "H25lnFfA3mNbU4nF5WDZ";
+const CORRECT_DATE_USER = "18/09/2025";
+
+// Nouveaux identifiants pour le service litige
+const CORRECT_CODE_SERVICE = "gg";
+const CORRECT_DATE_SERVICE = "123";
+
 
 // --- Route API pour la vérification de la connexion ---
-// Le frontend enverra une requête POST ici pour vérifier les identifiants.
 app.post('/verify', (req, res) => {
   const { code, date } = req.body;
 
-  if (code === CORRECT_CODE && date === CORRECT_DATE) {
-    // Si les informations sont correctes, on renvoie un succès.
-    res.status(200).json({ success: true, message: 'Authentification réussie' });
+  if (code === CORRECT_CODE_USER && date === CORRECT_DATE_USER) {
+    res.status(200).json({ success: true, message: 'Authentification réussie', userType: 'Utilisateur' });
+  } else if (code === CORRECT_CODE_SERVICE && date === CORRECT_DATE_SERVICE) {
+    res.status(200).json({ success: true, message: 'Authentification service réussie', userType: 'Service Litige' });
   } else {
-    // Sinon, on renvoie une erreur.
     res.status(401).json({ success: false, message: 'Code ou date invalide' });
   }
 });
@@ -52,27 +55,30 @@ app.post('/verify', (req, res) => {
 io.on('connection', (socket) => {
   console.log('Un utilisateur est connecté au chat !');
 
-  // Message de bienvenue envoyé automatiquement au client qui vient de se connecter.
-  socket.emit('chat message', {
-    user: 'Service Litige',
-    text: 'Bonjour ! Comment pouvons-nous vous aider avec votre dossier ?'
-  });
+  // NOUVEAU: Notifie tous les autres utilisateurs qu'une nouvelle personne est arrivée.
+  socket.broadcast.emit('user activity', { text: 'Un utilisateur s\'est connecté.' });
 
-  // Lorsqu'on reçoit un message d'un client...
+  // Gère la réception d'un message
   socket.on('chat message', (msg) => {
-    // On le renvoie à TOUS les clients connectés (l'utilisateur et le service litige).
     io.emit('chat message', msg);
   });
 
-  // Gère la déconnexion d'un utilisateur.
+  // NOUVEAU: Gère la demande d'effacement du chat
+  socket.on('clear chat', () => {
+    // Ordonne à tous les clients d'effacer leurs messages
+    io.emit('chat cleared');
+    console.log('Le chat a été effacé par un administrateur.');
+  });
+
+  // Gère la déconnexion d'un utilisateur
   socket.on('disconnect', () => {
     console.log('Un utilisateur s\'est déconnecté');
+    // NOUVEAU: Notifie tout le monde qu'un utilisateur est parti.
+    io.emit('user activity', { text: 'Un utilisateur s\'est déconnecté.' });
   });
 });
 
 // --- Démarrage du serveur ---
-// Render fournit automatiquement le port via la variable d'environnement PORT.
-// Si on est en local, on utilise le port 3001 par défaut.
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Le serveur est démarré et écoute sur le port ${PORT}`);
