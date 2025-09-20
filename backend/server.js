@@ -18,7 +18,7 @@ const io = new Server(server, {
     origin: frontendURL,
     methods: ["GET", "POST"]
   },
-  maxHttpBufferSize: 1e6 // Limite de 1Mo
+  maxHttpBufferSize: 1e6 // Limite de 1Mo pour les données (fichiers)
 });
 
 app.use(express.json());
@@ -72,15 +72,11 @@ io.on('connection', async (socket) => {
     io.emit('file message', { ...fileData, clientInfo });
   });
 
-  // NOUVEAU: Écoute les demandes de pop-up du support
   socket.on('request popup', () => {
-    // Envoie l'ordre d'afficher le pop-up à tous les autres clients (l'utilisateur)
     socket.broadcast.emit('display popup');
   });
 
-  // NOUVEAU: Écoute le choix fait par l'utilisateur dans le pop-up
   socket.on('popup choice', (choice) => {
-    // Envoie un message système à tout le monde pour confirmer le choix
     io.emit('chat message', {
       user: 'System',
       text: `User has chosen the option: "${choice.option}"`
@@ -90,7 +86,6 @@ io.on('connection', async (socket) => {
   socket.on('clear chat', () => { io.emit('chat cleared'); });
   socket.on('disconnect', () => { io.emit('user activity', { text: 'A user has disconnected.' }); });
 });
-
 
 // --- Démarrage du serveur ---
 const PORT = process.env.PORT || 3001;
