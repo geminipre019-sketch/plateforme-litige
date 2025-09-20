@@ -18,7 +18,7 @@ const io = new Server(server, {
     origin: frontendURL,
     methods: ["GET", "POST"]
   },
-  maxHttpBufferSize: 1e6 // Limite de 1Mo pour les données (fichiers)
+  maxHttpBufferSize: 2e6 // Limite de 2Mo pour les données (fichiers)
 });
 
 app.use(express.json());
