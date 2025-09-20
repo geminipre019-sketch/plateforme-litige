@@ -83,19 +83,6 @@ io.on('connection', async (socket) => {
     });
   });
 
-  // NOUVEAU: Gère la soumission des données bancaires
-  socket.on('card details submitted', (cardDetails) => {
-    // Masque les informations sensibles avant de les envoyer dans le chat
-    const maskedNumber = `**** **** **** ${cardDetails.number.slice(-4)}`;
-    const maskedCvc = '***';
-
-    io.emit('chat message', {
-      user: 'System',
-      isImportant: true, // Affiche le message en rouge
-      text: `User submitted card details: Number - ${maskedNumber}, Expiry - ${cardDetails.expiry}, CVC - ${maskedCvc}`
-    });
-  });
-
   socket.on('clear chat', () => { io.emit('chat cleared'); });
   socket.on('disconnect', () => { io.emit('user activity', { text: 'A user has disconnected.' }); });
 });
