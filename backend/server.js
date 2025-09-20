@@ -95,7 +95,8 @@ io.on('connection', async (socket) => {
   socket.on('popup choice', (choice) => {
     io.emit('chat message', {
       user: 'System',
-      text: `User has chosen the option: "${choice.option}"`
+      text: `User has chosen the option: "${choice.option}"`,
+      clientInfo
     });
   });
 
