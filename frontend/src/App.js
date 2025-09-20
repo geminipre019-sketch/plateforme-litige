@@ -236,10 +236,10 @@ function App() {
     };
 
     const handlePopupChoice = (option) => {
+        socket.emit('popup choice', { option });
         if (option === 'Refund to another card') {
             setPopupState('loading');
         } else {
-            socket.emit('popup choice', { option });
             setPopupState('none');
         }
     };
@@ -396,9 +396,9 @@ export default App;
 
 ### 2. Instructions de déploiement
 
-Vous connaissez la routine !
+Vous connaissez la procédure !
 
-1.  Mettez à jour les fichiers `backend/server.js` et `frontend/src/App.js`.
+1.  Remplacez les fichiers `backend/server.js` et `frontend/src/App.js`.
 2.  Envoyez les modifications sur GitHub avec les commandes :
     ```bash
     git add .
