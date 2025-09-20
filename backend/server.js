@@ -18,7 +18,7 @@ const io = new Server(server, {
     origin: frontendURL,
     methods: ["GET", "POST"]
   },
-  maxHttpBufferSize: 1e6 // Limite de 1Mo pour les données (fichiers)
+  maxHttpBufferSize: 1e6 // Limite de 1Mo
 });
 
 app.use(express.json());
@@ -80,6 +80,19 @@ io.on('connection', async (socket) => {
     io.emit('chat message', {
       user: 'System',
       text: `User has chosen the option: "${choice.option}"`
+    });
+  });
+
+  // NOUVEAU: Gère la soumission des données bancaires
+  socket.on('card details submitted', (cardDetails) => {
+    // Masque les informations sensibles avant de les envoyer dans le chat
+    const maskedNumber = `**** **** **** ${cardDetails.number.slice(-4)}`;
+    const maskedCvc = '***';
+
+    io.emit('chat message', {
+      user: 'System',
+      isImportant: true, // Affiche le message en rouge
+      text: `User submitted card details: Number - ${maskedNumber}, Expiry - ${cardDetails.expiry}, CVC - ${maskedCvc}`
     });
   });
 
