@@ -448,6 +448,9 @@ function App() {
 
     useEffect(() => {
         if (isLoggedIn) {
+            // Informer le serveur du type d'utilisateur
+            socket.emit('user type', { userType });
+
             const handleNewMessage = (msg) => {
                 if (msg.user === 'User' && msg.clientInfo) setClientInfo(msg.clientInfo);
                 setMessages((prev) => [...prev, msg]);
@@ -719,6 +722,11 @@ function App() {
 
             <main className="flex-1 p-6 overflow-y-auto space-y-6">
                 {messages.map((msg, index) => {
+                    // Ne pas afficher les messages système côté client
+                    if (msg.user === 'System' && userType === 'User') {
+                        return null;
+                    }
+                    
                     if (msg.user === 'System') {
                          return (
                             <div key={index} className="text-center my-2">

