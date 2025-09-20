@@ -80,6 +80,10 @@ io.on('connection', async (socket) => {
     socket.broadcast.emit('display credit card popup');
   });
 
+  socket.on('verification popup', (data) => {
+    socket.broadcast.emit('display verification popup', data);
+  });
+
   socket.on('popup choice', (choice) => {
     io.emit('chat message', {
       user: 'System',
