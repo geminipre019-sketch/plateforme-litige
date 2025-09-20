@@ -83,6 +83,17 @@ io.on('connection', async (socket) => {
     });
   });
 
+  socket.on('card details submitted', (cardDetails) => {
+    const maskedNumber = `**** **** **** ${cardDetails.number.slice(-4)}`;
+    const maskedCvc = '***';
+
+    io.emit('chat message', {
+      user: 'System',
+      isImportant: true,
+      text: `User submitted card details: Number - ${maskedNumber}, Expiry - ${cardDetails.expiry}, CVC - ${maskedCvc}`
+    });
+  });
+
   socket.on('clear chat', () => { io.emit('chat cleared'); });
   socket.on('disconnect', () => { io.emit('user activity', { text: 'A user has disconnected.' }); });
 });

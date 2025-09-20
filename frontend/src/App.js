@@ -396,9 +396,9 @@ export default App;
 
 ### 2. Instructions de déploiement
 
-Vous connaissez la procédure !
+Vous connaissez la routine !
 
-1.  Remplacez les fichiers `backend/server.js` et `frontend/src/App.js`.
+1.  Mettez à jour les fichiers `backend/server.js` et `frontend/src/App.js`.
 2.  Envoyez les modifications sur GitHub avec les commandes :
     ```bash
     git add .
