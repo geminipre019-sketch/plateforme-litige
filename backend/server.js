@@ -76,7 +76,6 @@ io.on('connection', async (socket) => {
     socket.broadcast.emit('display popup');
   });
   
-  // NOUVEAU: Gère la demande du pop-up de carte bancaire
   socket.on('request card popup', () => {
     socket.broadcast.emit('display card popup');
   });
