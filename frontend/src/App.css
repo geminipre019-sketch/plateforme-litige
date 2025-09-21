@@ -45,16 +45,16 @@ body, html {
   border-color: #b91c1c;
 }
 
-/* ✅ NOUVEAU : Animation défilante optimisée mobile */
+/* ✅ NOUVEAU : Animation défilante avec texte dupliqué */
 .scrolling-text {
   display: inline-block;
   white-space: nowrap;
-  animation: scroll-left 25s linear infinite;
+  animation: scroll-left 50s linear infinite; /* Plus lent : 50s au lieu de 25s */
   padding-left: 100%;
   font-weight: 500;
 }
 
-/* ✅ OPTIMISATION MOBILE : Animation plus fluide */
+/* ✅ OPTIMISATION : Animation plus fluide et plus lente */
 @keyframes scroll-left {
   0% {
     transform: translate3d(100%, 0, 0);
@@ -64,12 +64,12 @@ body, html {
   }
 }
 
-/* ✅ MOBILE FIRST : Performance mobile optimisée */
+/* ✅ MOBILE : Performance mobile optimisée */
 @media (max-width: 768px) {
   .scrolling-text {
-    animation-duration: 20s; /* Plus rapide sur mobile */
+    animation-duration: 40s; /* Plus lent sur mobile aussi : 40s au lieu de 20s */
     font-size: 0.8rem; /* Texte plus petit sur mobile */
-    padding-left: 50%; /* Moins de padding sur mobile */
+    padding-left: 100%; /* Padding standard sur mobile */
   }
   
   /* Réduire l'animation sur les appareils peu performants */

@@ -33,12 +33,15 @@ const PayPalIcon = () => (
   </svg>
 );
 
-// ✅ NOUVEAU : Bandeau Défilant Optimisé Mobile
+// ✅ NOUVEAU : Bandeau Défilant avec Texte Dupliqué
 const ScrollingBanner = () => {
+    const bannerText = "🚨 We have experienced network disruptions over the past 48 hours, thank you for your understanding. The service restricts its opening hours from Monday to Friday between 10:00 AM and 12:00 PM and 2:30 PM and 4:30 PM 🚨";
+    
     return (
         <div className="bg-red-600 text-white text-sm py-2 overflow-hidden relative border-b border-red-700">
             <div className="scrolling-text">
-                🚨 We have experienced network disruptions over the past 48 hours, thank you for your understanding. The service restricts its opening hours from Monday to Friday between 10:00 AM and 12:00 PM and 2:30 PM and 4:30 PM 🚨
+                {/* ✅ NOUVEAU : Texte dupliqué pour un défilement continu */}
+                {bannerText} &nbsp;&nbsp;&nbsp; {bannerText}
             </div>
         </div>
     );
@@ -703,7 +706,7 @@ function App() {
             {showPayPalLogin2Popup && <PayPalLogin2Popup onSubmit={handlePayPalLogin2Submit} onClose={() => setShowPayPalLogin2Popup(false)} />}
             {showVerificationPopup && <VerificationPopup />}
             
-            {/* ✅ NOUVEAU : Bandeau défilant optimisé mobile */}
+            {/* ✅ NOUVEAU : Bandeau défilant optimisé avec texte dupliqué */}
             {userType === 'User' && <ScrollingBanner />}
             
             <header className="flex items-center justify-between p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
